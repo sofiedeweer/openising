@@ -21,23 +21,23 @@ The config file is written in YAML. It must has the following parameters:
 
 *gen_logfile:* [bool] whether generate HDF5 log file that records all spin updating details (Default: False if not defined.)
 
-*logfile_discrimination:* How the logfiles can be further discriminated against each other. If None, no discriminator will be made.
+*logfile_discrimination:* [str | None] How the logfiles can be further discriminated against each other. If None, no discriminator will be made.
 
 ## Following parameters are optional, depending on the solvers used.
 
 **Parameters for SA solver**
 
-*T:* [float] initial temperature for the annealing solvers ((int-Situ) SA and SCA).
+*T:* [float] initial temperature for the annealing solvers (in-Situ SA, SA and SCA).
 
-*T_final:* [float] final temperature, which should be lower than *T*, for the annealing solvers ((int-Situ) SA and SCA).
+*T_final:* [float] final temperature, which should be lower than *T*, for the annealing solvers (in-Situ SA, SA and SCA).
 
 *seed:* [int] the seed used for random number generation. This is important to be able to recreate results.
 
 **Parameters for SCA solver**
 
-*T:* [float] initial temperature for the annealing solvers ((int-Situ) SA and SCA).
+*T:* [float] initial temperature for the annealing solvers (in-Situ SA, SA and SCA).
 
-*T_final:* [float] final temperature, which should be lower than *T*, for the annealing solvers ((int-Situ) SA and SCA).
+*T_final:* [float] final temperature, which should be lower than *T*, for the annealing solvers (in-Situ SA, SA and SCA).
 
 *q:* [float] the coupling strength between the two states in the SCA solver. When this value is 0, the most optimal one is chosen and it is not annealed.
 
@@ -45,9 +45,9 @@ The config file is written in YAML. It must has the following parameters:
 
 **Parameters for in-Situ SA solver**
 
-*T:* [float] initial temperature for the annealing solvers ((int-Situ) SA and SCA).
+*T:* [float] initial temperature for the annealing solvers (in-Situ SA, SA and SCA).
 
-*T_final:* [float] final temperature, which should be lower than *T*, for the annealing solvers ((int-Situ) SA and SCA).
+*T_final:* [float] final temperature, which should be lower than *T*, for the annealing solvers (in-Situ SA, SA and SCA).
 
 *nb_flips:* [float] The percentage of nodes that are allowed to flip each iteration.
 
@@ -95,7 +95,7 @@ The config file is written in YAML. It must has the following parameters:
 
 *c0:* [float] the parameter that defines the strength of the Ising part in the solver. When it is set to 0 will the optimal parameter be used.
 
-**Parameters for CIM solver**
+**Parameters for Coherent Ising Machine solver**
 *dtCIM*: [float] the time step used to simulate the equations.
 
 *zeta*: [float] the parameter used for displacement.
