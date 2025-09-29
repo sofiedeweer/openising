@@ -1,13 +1,13 @@
 import numpy as np
 import pathlib
-# from scipy.integrate import solve_ivp
+from pylfsr import LFSR
 
-from ising.stages import LOGGER
+
+# from ising.stages import LOGGER
 from ising.solvers.base import SolverBase
 from ising.stages.model.ising import IsingModel
 from ising.utils.HDF5Logger import HDF5Logger
 from ising.utils.numpy import triu_to_symm
-from ising.utils.helper_functions import return_rx
 from ising.utils.numba_functions import dvdt_solver
 
 
@@ -67,12 +67,11 @@ class Multiplicative(SolverBase):
         """
         return dvdt_solver(t, vt, self.coupling_d, np.int8(self.bias), self.capacitance)
 
-    def inner_loop(self, model: IsingModel, state: np.ndarray, log: HDF5Logger):
+    def inner_loop(self, model: IsingModel, state: np.ndarray):
         """! Simulates the hardware
 
         @param model (IsingModel): the model to solve.
         @param state (np.ndarray): the initial state to start the simulation.
-        @param log (HDF5Logger): the logger to use for saving results.
 
         @return sigma (np.ndarray): the final discrete state of the system.
         @return energy (float): the final energy of the system.
@@ -86,19 +85,13 @@ class Multiplicative(SolverBase):
 
         previous_voltages = state.astype(np.float32)
 
-        if log.filename is not None:
-            energy = model.evaluate(np.sign(state[: model.num_variables], dtype=np.float32))
-            log.log(time_clock=0.0, energy=energy, state=np.sign(state), voltages=state)
-
         count = np.zeros((model.num_variables,))
         norm_prev = np.linalg.norm(previous_voltages, ord=np.inf)
         while i < self.num_iterations and max_change > self.stop_criterion:
             # LOGGER.info(f"Iteration {i}")
             k1 = self.dt * self.dvdt(tk, previous_voltages)
             k2 = self.dt * self.dvdt(tk + self.dt, previous_voltages + k1)
-            k3 = self.dt * self.dvdt(
-                tk + self.half * self.dt, previous_voltages + self.quarter * (k1 + k2)
-            )
+            k3 = self.dt * self.dvdt(tk + self.half * self.dt, previous_voltages + self.quarter * (k1 + k2))
 
             new_voltages = previous_voltages + (k1 + k2 + self.four * k3) / self.six
 
@@ -107,17 +100,6 @@ class Multiplicative(SolverBase):
 
             count += (previous_voltages[: model.num_variables] * new_voltages[: model.num_variables]) < 0
 
-            # Log everything
-            if log.filename is not None:
-                sample = np.sign(new_voltages[: model.num_variables], dtype=np.float32)
-                energy = model.evaluate(sample)
-                log.log(
-                    time_clock=tk,
-                    energy=energy,
-                    state=sample,
-                    voltages=new_voltages[: model.num_variables],
-                )
-
             # Only compute norm if needed
             if i > 0 and i % 1000:
                 diff = np.abs(new_voltages - previous_voltages)
@@ -125,24 +107,7 @@ class Multiplicative(SolverBase):
                 norm_prev = np.linalg.norm(new_voltages, ord=np.inf)
             previous_voltages = new_voltages.copy()
 
-        if log.filename is None:
-            energy = model.evaluate(np.sign(new_voltages[: model.num_variables], dtype=np.float32))
-
-        # Set up the simulation
-        # time_points = np.linspace(0, self.dt * self.num_iterations, self.num_iterations)
-        # count = np.zeros((model.num_variables,))
-        # res_voltages = solve_ivp(
-        #     self.dvdt, (0, time_points[-1]), state, method="RK23", t_eval=time_points, rtol=self.stop_criterion
-        # )
-        # prev_voltages = state
-
-        # # Ensure everything is logged
-        # for tk, voltages in zip(time_points, res_voltages.y.T):
-        #     count += np.where((prev_voltages[: model.num_variables] * voltages[: model.num_variables] < 0), 1, 0)
-        #     sample = np.sign(voltages[: model.num_variables])
-        #     energy = model.evaluate(sample)
-        #     log.log(time_clock=tk, energy=energy, state=sample, voltages=voltages[: model.num_variables])
-        #     prev_voltages = voltages.copy()
+        energy = model.evaluate(np.sign(new_voltages[: model.num_variables], dtype=np.float32))
         return np.sign(new_voltages[: model.num_variables]), energy, count
 
     def solve(
@@ -155,6 +120,9 @@ class Multiplicative(SolverBase):
         cluster_threshold: float,
         init_cluster_size: float,
         end_cluster_size: float,
+        exponent: float = 3.0,
+        cluster_choice: str = "random",
+        pseudo_length: int | None = None,
         resistance: float = 1.0,
         capacitance: float = 1.0,
         seed: int = 0,
@@ -195,6 +163,7 @@ class Multiplicative(SolverBase):
         # Ensure the mean and variance of J are reasonable
         alpha = 1.0
         coupling = alpha * triu_to_symm(new_model.J) * 1 / resistance
+        self.num_variables = model.num_variables
 
         # Set the parameters for easy calling
         init_size = int(init_cluster_size * model.num_variables)
@@ -212,6 +181,33 @@ class Multiplicative(SolverBase):
 
         # make sure the correct random seed is used
         np.random.seed(seed)
+        # make sure the correct random seed is used
+        if pseudo_length is not None:
+            degree = int(np.log2(pseudo_length + 1))
+            if degree not in range(1, 13):
+                raise ValueError("pseudo_length should be of the form 2^n-1 with n an integer between 1 and 12.")
+            fpoly = [degree]
+            if degree == 5:
+                fpoly.append(2)
+            elif degree == 8:
+                fpoly += [7, 2, 1]
+            elif degree == 9:
+                fpoly.append(4)
+            elif degree == 10:
+                fpoly.append(3)
+            elif degree == 11:
+                fpoly.append(2)
+            elif degree == 12:
+                fpoly += [6, 4, 1]
+            else:
+                fpoly.append(1)
+            initstate = np.random.choice([0, 1], size=(degree,))
+            self.generator = LFSR(fpoly=fpoly, initstate=initstate).runKCycle
+            nb_bits = int(np.log2(self.num_variables) + 1)
+        else:
+            self.generator = np.random.choice
+            nb_bits = -1
+            pseudo_length = -1
 
         # Set up the bias node and add noise to the initial voltages
         num_var = model.num_variables
@@ -224,53 +220,90 @@ class Multiplicative(SolverBase):
 
         # Schema for logging
         schema = {
-            "time_clock": float,
             "energy": np.float32,
             "state": (np.int8, (num_var,)),
-            "voltages": (np.float32, (num_var,)),
+        }
+
+        # Define cluster function
+        choice = ""
+        if cluster_choice == "random":
+            find_cluster = self.find_cluster_random
+        elif cluster_choice == "gradient":
+            find_cluster = self.find_cluster_gradient
+        elif cluster_choice == "weighted_mean_smallest":
+            find_cluster = self.find_cluster_weighted_mean
+            choice = "smallest"
+        elif cluster_choice == "weighted_mean_largest":
+            find_cluster = self.find_cluster_weighted_mean
+            choice = "largest"
+        elif cluster_choice == "frequency":
+            find_cluster = self.find_cluster_frequency
+        else:
+            raise ValueError(
+                f" Unknown cluster choice: {cluster_choice}. \
+             Currently supported: random, gradient, weighted_mean_smallest, weighted_mean_largest, frequency."
+            )
+        additional_information = {
+            "count": np.ndarray,
+            "current_state": np.ndarray,
+            "cluster_threshold": cluster_threshold,
+            "optimal_points": [],
+            "choice": choice,
+            "pseudo_length": pseudo_length,
+            "nb_bits": nb_bits,
         }
 
         with HDF5Logger(file, schema) as log:
-            self.log_metadata(
-                logger=log,
-                initial_state=np.sign(v[:-1]),
-                model=model,
-                num_iterations=num_iterations,
-                time_step=dtMult,
-                temperature=initial_temp_cont,
-            )
+            if log.filename is not None:
+                self.log_metadata(
+                    logger=log,
+                    initial_state=np.sign(initial_state),
+                    model=model,
+                    num_iterations=num_iterations,
+                    time_step=dtMult,
+                    temperature=initial_temp_cont,
+                    pseudo_length=pseudo_length,
+                    cluster_choice=cluster_choice,
+                    exponent=exponent,
+                )
             best_energy = np.inf
             best_sample = v[: model.num_variables].copy()
             for it in range(nb_flipping):
-                # LOGGER.info(f"Iteration {it} - energy: {best_energy}")
+                sample, energy, count = self.inner_loop(model, v)
+                additional_information["count"] = count
+                additional_information["current_state"] = sample
 
-                sample, energy, count = self.inner_loop(model, v, log)
-                LOGGER.debug(f"Iteration {it} - energy: {energy}")
                 if energy < best_energy:
                     best_energy = energy
                     best_sample = sample.copy()
+                    additional_information["optimal_points"].append((best_sample.copy(), best_energy))
 
-                cluster = self.find_cluster(
-                    count,
+                cluster = find_cluster(
                     self.size_function(
                         iteration=it,
                         total_iterations=num_iterations,
                         init_size=init_size,
                         end_size=end_size,
+                        exponent=exponent,
                     ),
-                    cluster_threshold,
+                    **additional_information,
                 )
                 v = best_sample.copy()
                 v[cluster] *= -1
                 if self.bias:
-                    v = np.block([v, 1.0])
-            LOGGER.debug(f"Finished with energy: {energy}")
-            log.write_metadata(
-                solution_state=sample,
-                solution_energy=energy,
-                total_time=dtMult * num_iterations,
-            )
-        return best_sample, best_energy
+                    v = np.block([v, np.float32(1.0)])
+
+                # Log everything
+                if log.filename is not None:
+                    log.log(energy=best_energy, state=best_sample)
+
+            if log.filename is not None:
+                log.write_metadata(
+                    solution_state=sample,
+                    solution_energy=energy,
+                    total_time=dtMult * num_iterations,
+                )
+        return best_sample, best_energy, dtMult * num_iterations * nb_flipping, -1
 
     def size_function(
         self,
@@ -281,13 +314,71 @@ class Multiplicative(SolverBase):
         exponent: float = 3.0,
     ):
         return int(
-            (return_rx(total_iterations, init_size, end_size) ** (iteration * exponent)) * (init_size - end_size)
-            + end_size
+            np.floor(
+                ((end_size - 1) / init_size) ** (iteration * exponent / (total_iterations - 1)) * (init_size - end_size)
+                + end_size
+            )
         )
 
-    def find_cluster(
-        self, counts: np.ndarray, cluster_size: int, cluster_threshold: float
-    ):
+    def find_cluster_gradient(self, cluster_size: int, **additional_information) -> np.ndarray:
+        coupling = self.coupling_d * self.resistance
+        sigma = additional_information["current_state"]
+        threshold = additional_information["cluster_threshold"]
+
+        gradient = (coupling @ np.block([sigma, 1]))[: len(sigma)]
+        gradient /= np.max(gradient)
+        available_nodes = np.where(gradient >= threshold, np.arange(len(sigma)), -1)  # Chosen nodes based on threshold
+        if len(available_nodes[available_nodes >= 0]) < cluster_size:  # Case when not enough nodes are available
+            current_size = len(available_nodes[available_nodes >= 0])
+            ind_unavailable_nodes = np.where(available_nodes < 0)[0]
+            chosen_nodes = np.random.choice(ind_unavailable_nodes, (cluster_size - current_size,), replace=False)
+            available_nodes[chosen_nodes] = np.arange(len(sigma))[chosen_nodes]
+            cluster = available_nodes[available_nodes >= 0]
+        else:  # case when enough nodes are available
+            cluster = np.random.choice(available_nodes[available_nodes >= 0], size=(cluster_size,), replace=False)
+        return cluster
+
+    def find_cluster_random(self, cluster_size: int, **additional_information) -> np.ndarray:
+        """Finds a random cluster of nodes to flip.
+
+        Args:
+            cluster_size (int): the size of the cluster to find.
+        """
+        if additional_information["pseudo_length"] == -1:
+            cluster = self.generator(np.arange(self.num_variables), size=(cluster_size,), replace=False)
+        else:
+            cluster = set()
+            while len(cluster) < cluster_size:
+                nb_bits = (cluster_size - len(cluster)) * additional_information["nb_bits"]
+                seq = np.array(self.generator(nb_bits)).reshape(
+                    (cluster_size - len(cluster), additional_information["nb_bits"])
+                )
+                # LOGGER.info(cluster)
+                for row in seq:
+                    str_bin = np.array2string(row, separator="")[1:-1]
+                    node = int(str_bin, 2)
+                    if node < self.num_variables:
+                        cluster.add(node)
+            cluster = np.array(list(cluster))
+
+        return cluster
+
+    def find_cluster_weighted_mean(self, cluster_size: int, **additional_information) -> np.ndarray:
+        optimal_points = additional_information["optimal_points"]
+        choice = additional_information["choice"]
+        weight_nodes = np.zeros_like(optimal_points[0][0], dtype=float)
+        for point, en in optimal_points:
+            weight_nodes += 1 / en * point  # the smaller the energy, the larger the weight
+        if np.linalg.norm(weight_nodes) == 0:
+            weight_nodes = np.random.random(weight_nodes.shape)  # First step is random choice
+        if choice == "smallest":
+            cluster = np.argsort(np.abs(weight_nodes))[:cluster_size]
+        else:
+            cluster = np.argsort(np.abs(weight_nodes))[-cluster_size:]
+
+        return cluster
+
+    def find_cluster_frequency(self, cluster_size: int, **additional_information) -> np.ndarray:
         """Finds the cluster of nodes to flip. These nodes are chosen based on the frequency of flipping.
 
         Args:
@@ -295,28 +386,18 @@ class Multiplicative(SolverBase):
             cluster_size (int): the size of the cluster to find.
             cluster_threshold (float): the threshold for selecting nodes.
         """
+        counts = additional_information["counts"]
+        cluster_threshold = additional_information["cluster_threshold"]
+
         freq = counts / (np.max(np.abs(counts)) if np.max(np.abs(counts)) != 0 else 1)
 
         available_nodes = np.where(freq < cluster_threshold)[0]
         current_size = len(available_nodes)
         if len(available_nodes) < cluster_size:
             ind_unavailable_nodes = np.where(freq >= cluster_threshold)[0]
-            chosen_nodes = np.array([], dtype=int)
-            while len(chosen_nodes) < cluster_size - current_size:
-                chosen_nodes = np.unique(
-                    np.append(
-                        chosen_nodes,
-                        np.random.choice(
-                            ind_unavailable_nodes,
-                            (cluster_size - current_size - len(chosen_nodes),),
-                        ),
-                    )
-                )
-                ind_unavailable_nodes = np.setdiff1d(ind_unavailable_nodes, chosen_nodes)
+            chosen_nodes = np.random.choice(ind_unavailable_nodes, (cluster_size - current_size,), replace=False)
             available_nodes = np.append(available_nodes, chosen_nodes)
             cluster = available_nodes
         else:
-            cluster = np.random.choice(
-                available_nodes, size=(cluster_size,), replace=False
-            )
+            cluster = np.random.choice(available_nodes, size=(cluster_size,), replace=False)
         return cluster

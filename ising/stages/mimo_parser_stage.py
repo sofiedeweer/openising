@@ -52,12 +52,16 @@ class MIMOParserStage(Stage):
         self.kwargs["best_found"] = 0.0
 
         ans_all = Ans()
+        ans_all.ber_of_trials = {solver: None for solver in self.config.solvers}
+        ans_all.ber_of_users = {solver: None for solver in self.config.solvers}
+        ans_all.BER = {solver: None for solver in self.config.solvers}
         ans_all.MIMO = []
+        ans_all.computation_time = {solver: [] for solver in self.config.solvers}
         is_bpsk = M == 2
         if is_bpsk:
-            diff = np.zeros((user_num, case_num))
+            diff = {solver: np.zeros((user_num, case_num)) for solver in self.config.solvers}
         else:
-            diff = np.zeros((2*user_num, case_num))
+            diff = {solver: np.zeros((2*user_num, case_num)) for solver in self.config.solvers}
         for run in range(case_num):
             xi = x[:, run]
             ising_model, x_tilde, _ = self.MIMO_to_Ising(
@@ -73,19 +77,24 @@ class MIMOParserStage(Stage):
             debug_info: Ans
             ans, debug_info = next(sub_stage.run())
             ans_all.MIMO.append(ans)
-            diff[:, run] = ans.difference
+            for solver in self.config.solvers:
+                ans_all.computation_time[solver] += ans.computation_time[solver]
+                diff[solver][:, run] = ans.difference[solver]
 
-        # calc ber per trail
-        ans_all.ber_of_trails = np.sum(np.abs(diff) / 2, axis=0) / (np.log2(M)*user_num)
-
-        # calc ber per user
-        array_mid = diff.shape[0] // 2
-        diff_real_half = diff[0:array_mid, :]
-        diff_imag_half = diff[array_mid:, :]
-        diff_of_users = np.hstack((diff_real_half, diff_imag_half))
-        ans_all.ber_of_users = np.sum(np.abs(diff_of_users) / 2, axis=1) / (np.log2(M)*case_num)
-
-        ans_all.BER = np.mean(ans_all.ber_of_trails) # same as np.mean(ans_all.ber_of_users)
+        for solver in self.config.solvers:
+            # calc ber per trail
+            ans_all.ber_of_trials[solver] = np.sum(np.abs(diff[solver]) / 2, axis=0) / (np.log2(M)*user_num)
+            # calc ber per user
+            array_mid = diff[solver].shape[0] // 2
+            diff_real_half = diff[solver][0:array_mid, :]
+            diff_imag_half = diff[solver][array_mid:, :]
+            diff_of_users = np.hstack((diff_real_half, diff_imag_half))
+            ans_all.ber_of_users[solver] = np.sum(np.abs(diff_of_users) / 2, axis=1) / (np.log2(M)*case_num)
+            ans_all.BER[solver] = np.mean(ans_all.ber_of_trials[solver])
+            ans_all.operation_count = ans.operation_count
+        ans_all.SNR = snr
+        ans_all.benchmark = ans.benchmark
+        ans_all.config = self.config
         LOGGER.info("BER/case: %s, BER/user: %s, mean: %s", ans_all.ber_of_trails, ans_all.ber_of_users, ans_all.BER)
 
         yield ans_all, debug_info

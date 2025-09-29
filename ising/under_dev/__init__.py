@@ -1,5 +1,13 @@
 from argparse import Namespace
+import os
+
+os.environ["MKL_NUM_THREADS"] = str(4)
+os.environ["NUMEXPR_NUM_THREADS"] = str(4)
+os.environ["OMP_NUM_THREADS"] = str(4)
+os.environ["OPENBLAS_NUM_THREADS"] = str(4)
+
 import numpy as np
+
 
 from ising.stages.main_stage import MainStage
 from ising.stages.simulation_stage import SimulationStage
@@ -9,6 +17,9 @@ from ising.stages.tsp_parser_stage import TSPParserStage
 from ising.stages.atsp_parser_stage import ATSPParserStage
 from ising.stages.qkp_parser_stage import QKPParserStage
 from ising.stages.mimo_parser_stage import MIMOParserStage
+
+nb_cores = 16
+os.sched_setaffinity(0, range(nb_cores))
 
 
 sim_stage = SimulationStage([MainStage], config=Namespace(benchmark="ising/G16.txt"), ising_model=IsingModel(np.zeros((2,2)), np.zeros((2,))))
