@@ -2,6 +2,7 @@ import numpy as np
 import pathlib
 from pylfsr import LFSR
 
+
 # from ising.stages import LOGGER
 from ising.solvers.base import SolverBase
 from ising.stages.model.ising import IsingModel
@@ -108,7 +109,6 @@ class Multiplicative(SolverBase):
             previous_voltages = new_voltages.copy()
 
         energy = model.evaluate(np.sign(new_voltages[: model.num_variables], dtype=np.float32))
-
         return np.sign(new_voltages[: model.num_variables]), energy, count
 
     def solve(
@@ -179,6 +179,8 @@ class Multiplicative(SolverBase):
             end_temp_cont,
             coupling,
         )
+
+        # make sure the correct random seed is used
         np.random.seed(seed)
         # make sure the correct random seed is used
         if pseudo_length is not None:
@@ -271,6 +273,7 @@ class Multiplicative(SolverBase):
                 sample, energy, count = self.inner_loop(model, v)
                 additional_information["count"] = count
                 additional_information["current_state"] = sample
+                
                 if energy < best_energy:
                     best_energy = energy
                     best_sample = sample.copy()

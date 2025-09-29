@@ -3,6 +3,9 @@ from typing import Any
 import numpy as np
 import math
 import copy
+import matplotlib.pyplot as plt
+import seaborn as sns
+import matplotlib.cm as cm
 from ising.stages.stage import Stage, StageCallable
 from ising.stages.model.ising import IsingModel
 
@@ -43,22 +46,12 @@ class QuantizationStage(Stage):
         if self.config.quantization:
             quantization_precision = self.config.quantization_precision
             original_J = self.ising_model.J
-            #####
-            # Debugging purpose
-            j_std = np.std(original_J)
-            j_mean = np.mean(original_J)
-            original_J[original_J > j_mean + 6 * j_std] = j_mean + 6 * j_std
-            original_J[original_J < j_mean - 6 * j_std] = j_mean - 6 * j_std
-            original_int_j_precision, j_is_unsigned = self.calc_original_precision(original_J)
-            #####
-            quantized_J = self.quantize_matrix(
-                J=original_J, original_precision=original_int_j_precision, quantization_precision=quantization_precision
-            )
-            quantized_h = self.quantize_matrix(
-                J=self.ising_model.h,
-                original_precision=original_int_h_precision,
-                quantization_precision=quantization_precision,
-            )
+            quantized_J = self.quantize_matrix(J=original_J,
+                                               original_precision=original_int_j_precision,
+                                               quantization_precision=quantization_precision)
+            quantized_h = self.quantize_matrix(J=self.ising_model.h,
+                                               original_precision=original_int_h_precision,
+                                               quantization_precision=quantization_precision)
             LOGGER.info(f"Quantization is enabled with precision: {quantization_precision}-bit.")
 
             quantized_model = IsingModel(
@@ -221,9 +214,6 @@ class QuantizationStage(Stage):
         @param output: output file name
         @param zero_as_white: whether to plot zero values as white
         """
-        import matplotlib.pyplot as plt
-        import seaborn as sns
-        import matplotlib.cm as cm
 
         fig, ax = plt.subplots(1, 1)
 
@@ -287,7 +277,6 @@ class QuantizationStage(Stage):
         @param output: output file name
         @param bins: number of bins for the histogram
         """
-        import matplotlib.pyplot as plt
 
         plt.figure(figsize=(8, 6))
         plt.hist(data.reshape(-1, 1), bins=bins, alpha=0.7, color="blue", edgecolor="black")

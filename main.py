@@ -18,8 +18,8 @@ logging_format = "%(asctime)s - %(filename)s - %(funcName)s +%(lineno)s - %(leve
 logging.basicConfig(level=logging_level, format=logging_format, stream=sys.stdout)
 
 # Input file directory
-problem_type = "TSP"  # Specify the problem type
-config_path = "ising/inputs/config/config_convergence_speed.yaml"
+problem_type = "Maxcut"  # Specify the problem type [Maxcut, TSP, ATSP, MIMO]
+config_path = "ising/inputs/config/example.yaml"
 
 # Run the Ising model simulation
 ans, debug_info = api.get_hamiltonian_energy(
@@ -95,7 +95,7 @@ else:
         f.write("\n")
 
     logging.info(
-        "benchmark: %s, reference: %s, energy max: %s, min: %s, avg: %s",
+        "benchmark: %s, reference: %s, energy max: %s, min: %s, avg: %.2s",
         benchmark,
         best_found,
         ising_energy_max,

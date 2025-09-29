@@ -10,5 +10,4 @@ def smoothening_cluster(points:list[tuple[np.ndarray,float]], max_size:int, choi
         cluster = np.argsort(np.abs(weight_nodes))[:max_size]
     else:
         cluster = np.argsort(np.abs(weight_nodes))[-max_size:]
-
     return cluster

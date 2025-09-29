@@ -71,6 +71,7 @@ class SimulationStage(Stage):
         optim_energy_collect = {solver: [] for solver in self.config.solvers}
         comp_time_collect = {solver: [] for solver in self.config.solvers}
         operation_count = {solver: -1 for solver in self.config.solvers}
+
         logfile_collect = []
         if self.config.use_multiprocessing:
             runs_over = nb_runs - runs_per_thread * nb_cores

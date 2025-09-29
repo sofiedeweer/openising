@@ -19,6 +19,10 @@ class MIMOParserStage(Stage):
         super().__init__(list_of_callables, **kwargs)
         self.config = config
         self.benchmark_filename = TOP / config.benchmark
+        if hasattr(config, "is_hamming_encoding"):
+            self.is_hamming_encoding = config.is_hamming_encoding
+        else:
+            self.is_hamming_encoding = False
 
     def run(self) -> Any:
         """! Parse the MIMO benchmark workload."""
@@ -49,14 +53,20 @@ class MIMOParserStage(Stage):
 
         ans_all = Ans()
         ans_all.ber_of_trials = {solver: None for solver in self.config.solvers}
+        ans_all.ber_of_users = {solver: None for solver in self.config.solvers}
         ans_all.BER = {solver: None for solver in self.config.solvers}
         ans_all.MIMO = []
         ans_all.computation_time = {solver: [] for solver in self.config.solvers}
-        diff = {solver: np.zeros((2*user_num, case_num)) for solver in self.config.solvers}
+        is_bpsk = M == 2  
+        if is_bpsk:
+            diff = {solver: np.zeros((user_num, case_num)) for solver in self.config.solvers}
+        else:
+            diff = {solver: np.zeros((2*user_num, case_num)) for solver in self.config.solvers}
         for run in range(case_num):
             xi = x[:, run]
             ising_model, x_tilde, _ = self.MIMO_to_Ising(
-                H, xi, snr, user_num, ant_num, M, mimo_seed)
+                H, xi, snr, user_num, ant_num, M, mimo_seed,
+                is_hamming_encoding=self.is_hamming_encoding)
             self.kwargs["ising_model"] = ising_model
             self.kwargs["x_tilde"] = x_tilde
             self.kwargs["M"] = M
@@ -70,15 +80,22 @@ class MIMOParserStage(Stage):
             for solver in self.config.solvers:
                 ans_all.computation_time[solver] += ans.computation_time[solver]
                 diff[solver][:, run] = ans.difference[solver]
-
+                
         for solver in self.config.solvers:
-            ans_all.ber_of_trials[solver] = np.sum(np.abs(diff[solver]) / 2, axis=0) / (np.sqrt(M)*ant_num)
+            # calc ber per trail
+            ans_all.ber_of_trials[solver] = np.sum(np.abs(diff[solver]) / 2, axis=0) / (np.log2(M)*user_num)
+            # calc ber per user
+            array_mid = diff[solver].shape[0] // 2
+            diff_real_half = diff[solver][0:array_mid, :]
+            diff_imag_half = diff[solver][array_mid:, :]
+            diff_of_users = np.hstack((diff_real_half, diff_imag_half))
+            ans_all.ber_of_users[solver] = np.sum(np.abs(diff_of_users) / 2, axis=1) / (np.log2(M)*case_num)
             ans_all.BER[solver] = np.mean(ans_all.ber_of_trials[solver])
             ans_all.operation_count = ans.operation_count
         ans_all.SNR = snr
         ans_all.benchmark = ans.benchmark
         ans_all.config = self.config
-        LOGGER.info("BER/case: %s, mean: %s", ans_all.ber_of_trials, ans_all.BER)
+        LOGGER.info("BER/case: %s, BER/user: %s, mean: %s", ans_all.ber_of_trails, ans_all.ber_of_users, ans_all.BER)
 
         yield ans_all, debug_info
 
@@ -131,7 +148,8 @@ class MIMOParserStage(Stage):
 
     @staticmethod
     def MIMO_to_Ising(
-        H: np.ndarray, x: np.ndarray, SNR: float, user_num: int, ant_num: int, M: int, seed:int=0
+        H: np.ndarray, x: np.ndarray, SNR: float, user_num: int, ant_num: int, M: int, seed:int=0,
+        is_hamming_encoding: bool = False
     ) -> tuple[IsingModel, np.ndarray, np.ndarray]:
         """!Transforms the MIMO model into an Ising model.
 
@@ -143,18 +161,24 @@ class MIMOParserStage(Stage):
         @param ant_num (int): the amount of output signals.
         @param M (int): the considered QAM scheme.
         @param seed (int, optional): The seed for the random noise generation. Defaults to 0.
+        @param is_hamming_encoding (bool, optional): Whether to use Hamming encoding. Defaults to False.
 
         @return model (IsingModel): the generated Ising model.
         @return xtilde (np.ndarray): the real version of the input symbols.
         @return ytilde (np.ndarray): the real version of the output symbols.
         """
-        if np.linalg.norm(np.imag(x)) == 0:
+        is_bpsk = np.linalg.norm(np.imag(x)) == 0
+
+        if is_bpsk:
             # BPSK scheme
             r = 1
             Nx = np.shape(x)[0]
             Ny = 2*Nx
         else:
-            r = int(np.ceil(np.log2(np.sqrt(M))))
+            if is_hamming_encoding: # with hamming encoding
+                r = int(np.sqrt(M) - 1)
+            else: # with binary encoding
+                r = int(np.ceil(np.log2(np.sqrt(M))))
             Nx = np.shape(x)[0]*2
             Ny = Nx
 
@@ -165,8 +189,8 @@ class MIMOParserStage(Stage):
         # Compute the amplitude of the noise
         power_x = (np.abs(x)**2)
         SNR = 10 ** (SNR / 10)
-        var_noise = np.sqrt(np.max(power_x) / SNR)
-        n = var_noise*(np.random.randn(ant_num) + 1j * np.random.randn(ant_num)) / (np.sqrt(2))
+        var_noise = np.sqrt(np.mean(power_x) / SNR)
+        n = var_noise*(np.random.randn(ant_num) + 1j * np.random.randn(ant_num)) / (np.sqrt(2)) # noise
 
         # Compute the received symbols
         y = H @ x + n
@@ -174,9 +198,15 @@ class MIMOParserStage(Stage):
 
         Htilde = np.block([[np.real(H), -np.imag(H)], [np.imag(H), np.real(H)]])
 
-        T = np.block([2**(r-i)*np.eye(Ny, Nx) for i in range(1, r+1)])
+        if is_hamming_encoding: # with hamming encoding
+            T = np.block([np.eye(Ny, Nx) for _ in range(r)])
+        else: # with binary encoding
+            T = np.block([2**(r-i)*np.eye(Ny, Nx) for i in range(1, r+1)])
 
-        xtilde = np.block([np.real(x), np.imag(x)])
+        if is_bpsk:
+            xtilde = x
+        else:
+            xtilde = np.block([np.real(x), np.imag(x)])
 
         ones_end = np.eye(Ny, Nx) @ np.ones((Nx,))
         constant = ytilde.T@ytilde - 2*ytilde.T @ Htilde @ (T@np.ones((r*Nx,)) - \

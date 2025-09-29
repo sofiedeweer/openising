@@ -18,6 +18,7 @@ from ising.under_dev.Flipping.frequency_cluster import frequency_cluster
 from ising.under_dev.Flipping.plotting import plot_data, make_bar_plot
 np.random.seed(1)
 NICENESS = 0
+AMOUNT_CORES = os.getenv("AMOUNT_CORES")
 
 def do_flipping(cluster_size_init:int, cluster_size_end:int, sigma_init:np.ndarray,cluster_threshold:float, model:IsingModel, nb_flipping:int, dt:float, num_iterations:int, cluster_choice:str=""):
     sigma = sigma_init.copy()
@@ -104,6 +105,7 @@ def TSP_flipping():
                                                 dt=dt, 
                                                 num_iterations=num_iterations,
                                                 cluster_choice="random")
+
         results = pool.starmap(flipping_partial, new_tasks)
     energies = {key: result[1] for subresult in results for key, result in subresult.items()}
     energies = np.array([energies[(init_size, end_size, run)] for init_size in cluster_size_init
