@@ -18,8 +18,8 @@ logging_format = "%(asctime)s - %(filename)s - %(funcName)s +%(lineno)s - %(leve
 logging.basicConfig(level=logging_level, format=logging_format, stream=sys.stdout)
 
 # Input file directory
-problem_type = "MIMO"  # Specify the problem type
-config_path = "ising/inputs/config/config_pseudo_random.yaml"
+problem_type = "TSP"  # Specify the problem type
+config_path = "ising/inputs/config/config_convergence_speed.yaml"
 
 # Run the Ising model simulation
 ans, debug_info = api.get_hamiltonian_energy(
@@ -64,10 +64,17 @@ else:
     avg_en_str = " ".join([f"{ising_energy_avg[solver]:.4f}" for solver in solvers])
     tts = {
         solver: mean_computation_time[solver]
-        + np.log(1 - 0.99) / np.log(1 - (np.sum(ising_energies[solver] == 0.98 * best_found) / ans.config.nb_runs))
+        + np.log(1 - 0.99)
+        / np.log(
+            1
+            - np.sum(np.where(np.array(np.abs(ising_energies[solver])) <= 1.05 * np.abs(best_found), 1, 0))
+            / ans.config.nb_runs
+        )
         for solver in solvers
     }
-    approximation = {solver: 100 * ising_energy_avg[solver] / best_found for solver in solvers}
+    approximation = {
+        solver: 100 * np.abs(ising_energy_avg[solver] - best_found) / np.abs(best_found) for solver in solvers
+    }
     approx_str = " ".join([f"{approximation[solver]:.2f}%" for solver in solvers])
     tts_str = " ".join([f"{tts[solver]:.4f}s" for solver in solvers])
     with Path.open(output_file, "a") as f:
@@ -82,7 +89,7 @@ else:
         f.write(f"energy min| {min_en_str}\n")
         f.write(f"energy avg| {avg_en_str}\n")
         f.write(f"computation time| {comp_str}\n")
-        f.write(f"TTT 0.98| {tts_str}\n")
+        f.write(f"TTT 0.95| {tts_str}\n")
         f.write(f"operation count| {operation_str}\n")
         f.write(f"approximation| {approx_str}\n")
         f.write("\n")

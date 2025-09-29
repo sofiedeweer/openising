@@ -7,7 +7,6 @@ from ising.solvers.base import SolverBase
 from ising.stages.model.ising import IsingModel
 from ising.utils.HDF5Logger import HDF5Logger
 from ising.utils.numpy import triu_to_symm
-from ising.utils.helper_functions import return_rx
 from ising.utils.numba_functions import dvdt_solver
 
 
@@ -122,6 +121,7 @@ class Multiplicative(SolverBase):
         cluster_threshold: float,
         init_cluster_size: float,
         end_cluster_size: float,
+        exponent: float = 3.0,
         cluster_choice: str = "random",
         pseudo_length: int | None = None,
         resistance: float = 1.0,
@@ -262,7 +262,8 @@ class Multiplicative(SolverBase):
                     time_step=dtMult,
                     temperature=initial_temp_cont,
                     pseudo_length=pseudo_length,
-                    cluster_choice=cluster_choice
+                    cluster_choice=cluster_choice,
+                    exponent=exponent,
                 )
             best_energy = np.inf
             best_sample = v[: model.num_variables].copy()
@@ -281,6 +282,7 @@ class Multiplicative(SolverBase):
                         total_iterations=num_iterations,
                         init_size=init_size,
                         end_size=end_size,
+                        exponent=exponent,
                     ),
                     **additional_information,
                 )
@@ -309,10 +311,10 @@ class Multiplicative(SolverBase):
         end_size: int,
         exponent: float = 3.0,
     ):
-        return int(
-            (return_rx(total_iterations, init_size, end_size) ** (iteration * exponent)) * (init_size - end_size)
+        return int(np.floor(
+            ((end_size-1)/init_size) ** (iteration * exponent/(total_iterations -1)) * (init_size - end_size)
             + end_size
-        )
+        ))
 
     def find_cluster_gradient(self, cluster_size: int, **additional_information)->np.ndarray:
         coupling = self.coupling_d * self.resistance

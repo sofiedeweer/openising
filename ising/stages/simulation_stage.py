@@ -217,6 +217,7 @@ class SimulationStage(Stage):
                     "cluster_threshold",
                     "init_cluster_size",
                     "end_cluster_size",
+                    "exponent",
                     "cluster_choice",
                     "pseudo_length"
                 ],

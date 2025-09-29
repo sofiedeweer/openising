@@ -30,6 +30,7 @@ def parse_hyperparameters(args: dict, num_iter: int) -> dict[str:]:
         hyperparameters["init_cluster_size"] = float(args.init_cluster_size)
         hyperparameters["end_cluster_size"] = float(args.end_cluster_size)
         hyperparameters["cluster_choice"] = args.cluster_choice
+        hyperparameters["exponent"] = float(args.exponent)
         hyperparameters["pseudo_length"] = None if args.pseudo_length == "None" else int(args.pseudo_length)
 
     # BRIM parameters
