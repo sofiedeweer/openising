@@ -84,7 +84,7 @@ class CIMSolver(SolverBase):
                 x += dtCIM * (
                     self.pump_loss_law(_, num_iterations) * x
                     + zeta * coupling @ x
-                    + np.random.normal(size=x.shape).astype(np.float32)
+                    + np.random.normal(0, 0.05, size=x.shape).astype(np.float32)
                 )
                 x[-1] = np.float32(1) if use_bias else x[-1]
 
@@ -93,7 +93,7 @@ class CIMSolver(SolverBase):
 
                 if logger.filename is not None:
                     # Log the current state
-                    energy = model.evaluate(np.sign(x[: model.num_variables]))
+                    energy = model.evaluate(np.sign(x[: model.num_variables], dtype=np.float32))
                     logger.log(energy=energy, state=np.sign(x[: model.num_variables]), x=x)
 
             end_time = time.time()
@@ -106,4 +106,4 @@ class CIMSolver(SolverBase):
         return np.sign(x[: model.num_variables]), energy, end_time-start_time, nb_operations
 
     def pump_loss_law(self, it: int, num_iterations: int):
-        return np.float32(16 / (1 + np.exp(np.log(1 / 961) / num_iterations * it + np.log(31))) - 15.5)
+        return np.float32(2 / (1 + np.exp(np.log(1 / 3) / num_iterations * it)) - 1.5)

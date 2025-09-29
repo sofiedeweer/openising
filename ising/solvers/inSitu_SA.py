@@ -74,7 +74,7 @@ class InSituSASolver(SolverBase):
             # Setup initial state and energy
             Temp = initial_temp
             state = np.sign(initial_state, dtype=np.float32)
-
+            energy = model.evaluate(state)
             for _ in range(num_iterations):
                 # Select a random node to flip
                 sigma_f = np.where(
@@ -91,11 +91,14 @@ class InSituSASolver(SolverBase):
 
                 # Evaluate the new energy
                 f_T = 1 / (-0.006 * Temp + 5) - 0.2
-                delta = sigma_r.T @ coupling @ sigma_c * f_T
+                delta = -sigma_r.T @ coupling @ sigma_c * f_T
 
                 # Determine whether to accept the new state (Metropolis)
-                change_state = delta < 0 or random.random() >= delta
-                state = sigma_new if change_state else state  # accept correct state for flip
+                if delta <= 0:
+                    state = sigma_new
+                elif delta <= np.random.uniform(0, 1):
+                    state = sigma_new
+                # state = sigma_new if change_state else state  # accept correct state for flip
 
                 # Log current iteration data
                 if logger.filename is not None:
@@ -105,11 +108,10 @@ class InSituSASolver(SolverBase):
 
             end_time = time.time()
             nb_operations = num_iterations * (nb_flips + 6 * model.num_variables + 3 * nb_flips**2 + 1)
+            energy = model.evaluate(state)
             if logger.filename is not None:
                 logger.write_metadata(
-                    solution_state=state, solution_energy=model.evaluate(state), total_operations=nb_operations
+                    solution_state=state, solution_energy=energy, total_operations=nb_operations
                 )
-            else:
-                energy = model.evaluate(state)
 
         return state, energy, end_time - start_time, nb_operations
