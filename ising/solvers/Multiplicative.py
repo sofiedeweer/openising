@@ -100,7 +100,6 @@ class Multiplicative(SolverBase):
 
             count += (previous_voltages[: model.num_variables] * new_voltages[: model.num_variables]) < 0
 
-
             # Only compute norm if needed
             if i > 0 and i % 1000:
                 diff = np.abs(new_voltages - previous_voltages)
@@ -202,9 +201,9 @@ class Multiplicative(SolverBase):
                 fpoly += [6, 4, 1]
             else:
                 fpoly.append(1)
-            initstate = np.random.choice([0,1], size=(degree,))
+            initstate = np.random.choice([0, 1], size=(degree,))
             self.generator = LFSR(fpoly=fpoly, initstate=initstate).runKCycle
-            nb_bits = int(np.log2(self.num_variables)+1)
+            nb_bits = int(np.log2(self.num_variables) + 1)
         else:
             self.generator = np.random.choice
             nb_bits = -1
@@ -273,7 +272,7 @@ class Multiplicative(SolverBase):
                 sample, energy, count = self.inner_loop(model, v)
                 additional_information["count"] = count
                 additional_information["current_state"] = sample
-                
+
                 if energy < best_energy:
                     best_energy = energy
                     best_sample = sample.copy()
@@ -314,17 +313,19 @@ class Multiplicative(SolverBase):
         end_size: int,
         exponent: float = 3.0,
     ):
-        return int(np.floor(
-            ((end_size-1)/init_size) ** (iteration * exponent/(total_iterations -1)) * (init_size - end_size)
-            + end_size
-        ))
+        return int(
+            np.floor(
+                ((end_size - 1) / init_size) ** (iteration * exponent / (total_iterations - 1)) * (init_size - end_size)
+                + end_size
+            )
+        )
 
-    def find_cluster_gradient(self, cluster_size: int, **additional_information)->np.ndarray:
+    def find_cluster_gradient(self, cluster_size: int, **additional_information) -> np.ndarray:
         coupling = self.coupling_d * self.resistance
         sigma = additional_information["current_state"]
         threshold = additional_information["cluster_threshold"]
 
-        gradient = (coupling @ np.block([sigma, 1]))[:len(sigma)]
+        gradient = (coupling @ np.block([sigma, 1]))[: len(sigma)]
         gradient /= np.max(gradient)
         available_nodes = np.where(gradient >= threshold, np.arange(len(sigma)), -1)  # Chosen nodes based on threshold
         if len(available_nodes[available_nodes >= 0]) < cluster_size:  # Case when not enough nodes are available
@@ -362,7 +363,7 @@ class Multiplicative(SolverBase):
 
         return cluster
 
-    def find_cluster_weighted_mean(self, cluster_size: int, **additional_information)-> np.ndarray:
+    def find_cluster_weighted_mean(self, cluster_size: int, **additional_information) -> np.ndarray:
         optimal_points = additional_information["optimal_points"]
         choice = additional_information["choice"]
         weight_nodes = np.zeros_like(optimal_points[0][0], dtype=float)
@@ -377,7 +378,7 @@ class Multiplicative(SolverBase):
 
         return cluster
 
-    def find_cluster_frequency(self, cluster_size: int, **additional_information)->np.ndarray:
+    def find_cluster_frequency(self, cluster_size: int, **additional_information) -> np.ndarray:
         """Finds the cluster of nodes to flip. These nodes are chosen based on the frequency of flipping.
 
         Args:

@@ -62,7 +62,7 @@ class MIMOBerCalcStage(Stage):
                     x_optim = T @ (state + np.ones((r * N,))) - np.ones((N,))
                 else:
                     # QAM scheme
-                    x_optim = T @ (state + np.ones((r * N,))) - (np.sqrt(self.M) - 1) * np.ones((N,))                
+                    x_optim = T @ (state + np.ones((r * N,))) - (np.sqrt(self.M) - 1) * np.ones((N,))
                 ans.difference[solver] = self.x_tilde - x_optim
                 ans.lowest_energy[solver] = min_en
                 ans.lowest_energy_state[solver] = ans.states[solver][best_found]

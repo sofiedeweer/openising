@@ -57,7 +57,7 @@ class MIMOParserStage(Stage):
         ans_all.BER = {solver: None for solver in self.config.solvers}
         ans_all.MIMO = []
         ans_all.computation_time = {solver: [] for solver in self.config.solvers}
-        is_bpsk = M == 2  
+        is_bpsk = M == 2
         if is_bpsk:
             diff = {solver: np.zeros((user_num, case_num)) for solver in self.config.solvers}
         else:
@@ -80,7 +80,7 @@ class MIMOParserStage(Stage):
             for solver in self.config.solvers:
                 ans_all.computation_time[solver] += ans.computation_time[solver]
                 diff[solver][:, run] = ans.difference[solver]
-                
+
         for solver in self.config.solvers:
             # calc ber per trail
             ans_all.ber_of_trials[solver] = np.sum(np.abs(diff[solver]) / 2, axis=0) / (np.log2(M)*user_num)
