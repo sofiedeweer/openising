@@ -31,9 +31,8 @@ def compute_averages_energies(
         for _, y_data in plot_info.items():
             y = np.array(y_data)
             avg_energies[solver_name].append(np.mean(y, axis=0))
-            std = np.std(y, axis=0)
-            min_energies[solver_name].append(avg_energies[solver_name][-1] - std)
-            max_energies[solver_name].append(avg_energies[solver_name][-1] + std)
+            min_energies[solver_name].append(np.min(y, axis=0))
+            max_energies[solver_name].append(np.max(y, axis=0))
             # x_data[solver_name].append(x_dat)
 
         # make sure the data is a numpy array

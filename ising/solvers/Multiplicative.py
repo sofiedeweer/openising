@@ -281,7 +281,7 @@ class Multiplicative(SolverBase):
                 cluster = find_cluster(
                     self.size_function(
                         iteration=it,
-                        total_iterations=num_iterations,
+                        total_iterations=nb_flipping,
                         init_size=init_size,
                         end_size=end_size,
                         exponent=exponent,
@@ -315,7 +315,8 @@ class Multiplicative(SolverBase):
     ):
         return int(
             np.floor(
-                ((end_size - 1) / init_size) ** (iteration * exponent / (total_iterations - 1)) * (init_size - end_size)
+                (((end_size - 1) / init_size) ** (iteration * exponent / (total_iterations - 1)))
+                * (init_size - end_size)
                 + end_size
             )
         )
@@ -356,9 +357,8 @@ class Multiplicative(SolverBase):
                 # LOGGER.info(cluster)
                 for row in seq:
                     str_bin = np.array2string(row, separator="")[1:-1]
-                    node = int(str_bin, 2)
-                    if node < self.num_variables:
-                        cluster.add(node)
+                    node = int(str_bin, 2) % self.num_variables
+                    cluster.add(node)
             cluster = np.array(list(cluster))
 
         return cluster
@@ -371,11 +371,22 @@ class Multiplicative(SolverBase):
             weight_nodes += 1 / en * point  # the smaller the energy, the larger the weight
         if np.linalg.norm(weight_nodes) == 0:
             weight_nodes = np.random.random(weight_nodes.shape)  # First step is random choice
+        weight_nodes = np.abs(weight_nodes) / np.max(np.abs(weight_nodes))
         if choice == "smallest":
-            cluster = np.argsort(np.abs(weight_nodes))[:cluster_size]
+            available_nodes = np.where(weight_nodes < additional_information["cluster_threshold"])[0]
+            current_size = len(available_nodes)
+            if len(available_nodes) < cluster_size:
+                ind_unavailable_nodes = np.where(weight_nodes >= additional_information["cluster_threshold"])[0]
+                chosen_nodes = np.random.choice(ind_unavailable_nodes, (cluster_size - current_size,), replace=False)
+                available_nodes = np.append(available_nodes, chosen_nodes)
         else:
-            cluster = np.argsort(np.abs(weight_nodes))[-cluster_size:]
-
+            available_nodes = np.where(weight_nodes > additional_information["cluster_threshold"])[0]
+            current_size = len(available_nodes)
+            if len(available_nodes) < cluster_size:
+                ind_unavailable_nodes = np.where(weight_nodes <= additional_information["cluster_threshold"])[0]
+                chosen_nodes = np.random.choice(ind_unavailable_nodes, (cluster_size - current_size,), replace=False)
+                available_nodes = np.append(available_nodes, chosen_nodes)
+        cluster = np.random.choice(available_nodes, size=(cluster_size,), replace=False)
         return cluster
 
     def find_cluster_frequency(self, cluster_size: int, **additional_information) -> np.ndarray:
