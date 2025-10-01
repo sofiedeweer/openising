@@ -18,8 +18,8 @@ logging_format = "%(asctime)s - %(filename)s - %(funcName)s +%(lineno)s - %(leve
 logging.basicConfig(level=logging_level, format=logging_format, stream=sys.stdout)
 
 # Input file directory
-problem_type = "Maxcut"  # Specify the problem type [Maxcut, TSP, ATSP, MIMO]
-config_path = "ising/inputs/config/example.yaml"
+problem_type = "TSP"  # Specify the problem type [Maxcut, TSP, ATSP, MIMO]
+config_path = "ising/inputs/config/config_convergence_speed.yaml"
 
 # Run the Ising model simulation
 ans, debug_info = api.get_hamiltonian_energy(
@@ -41,7 +41,10 @@ if problem_type == "MIMO":
     with Path.open(output_file, "a") as f:
         f.write("\n")
         f.write("=====================\n")
-        f.write(f"results of running {ans.benchmark} with {config_path.split('/')[-1]}:\n")
+        f.write(
+            f"results of running {ans.benchmark} with {config_path.split('/')[-1]}:\n"
+        )
+        f.write(f"logfile discriminator: {ans.config.logfile_discrimination}\n")
         f.write("=====================\n")
         f.write("MIMO results:\n")
         f.write(f"SNR|BER  {solver_str}\n")
@@ -81,6 +84,7 @@ else:
         f.write("\n")
         f.write("=====================\n")
         f.write(f"results of running {ans.benchmark} with {config_path.split('/')[-1]}:\n")
+        f.write(f"logfile discriminator: {ans.config.logfile_discrimination}\n")
         f.write(f"reference energy {best_found}\n")
         f.write("=====================\n")
         f.write("Simulation results:\n")
@@ -95,7 +99,7 @@ else:
         f.write("\n")
 
     logging.info(
-        "benchmark: %s, reference: %s, energy max: %s, min: %s, avg: %.2s",
+        "benchmark: %s, \n reference: %s,\n energy max: %s, \n min: %s, \n avg: %s",
         benchmark,
         best_found,
         ising_energy_max,

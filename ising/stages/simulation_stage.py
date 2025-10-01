@@ -39,7 +39,10 @@ class SimulationStage(Stage):
         self.gen_logfile = self.config.gen_logfile if hasattr(self.config, "gen_logfile") else False
         self.ising_model = ising_model
         self.best_found = best_found if best_found is not None else float("inf")
-        self.benchmark_abbreviation = self.config.benchmark.split("/")[-1].split(".")[0]
+        if not config.dummy_creator:
+            self.benchmark_abbreviation = self.config.benchmark.split("/")[-1].split(".")[0]
+        else:
+            self.benchmark_abbreviation = f"dummy_{self.config.problem_type}"
         if self.config.logfile_discrimination != "None":
             self.logfile_discrimination = self.config.logfile_discrimination
         else:
@@ -199,8 +202,6 @@ class SimulationStage(Stage):
                     "dtBRIM",
                     "capacitance",
                     "stop_criterion",
-                    "initial_temp_cont",
-                    "end_temp_cont",
                     "seed",
                     "coupling_annealing",
                 ],
