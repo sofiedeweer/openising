@@ -18,8 +18,8 @@ logging_format = "%(asctime)s - %(filename)s - %(funcName)s +%(lineno)s - %(leve
 logging.basicConfig(level=logging_level, format=logging_format, stream=sys.stdout)
 
 # Input file directory
-problem_type = "TSP"  # Specify the problem type [Maxcut, TSP, ATSP, MIMO]
-config_path = "ising/inputs/config/config_convergence_speed.yaml"
+problem_type = "Maxcut"  # Specify the problem type [Maxcut, TSP, ATSP, MIMO]
+config_path = "ising/inputs/config/config_test_new_solvers.yaml"
 
 # Run the Ising model simulation
 ans, debug_info = api.get_hamiltonian_energy(
@@ -41,9 +41,7 @@ if problem_type == "MIMO":
     with Path.open(output_file, "a") as f:
         f.write("\n")
         f.write("=====================\n")
-        f.write(
-            f"results of running {ans.benchmark} with {config_path.split('/')[-1]}:\n"
-        )
+        f.write(f"results of running {ans.benchmark} with {config_path.split('/')[-1]}:\n")
         f.write(f"logfile discriminator: {ans.config.logfile_discrimination}\n")
         f.write("=====================\n")
         f.write("MIMO results:\n")
@@ -65,13 +63,18 @@ else:
     min_en_str = " ".join([f"{ising_energy_min[solver]:.4f}" for solver in solvers])
     ising_energy_avg = {solver: np.mean(ising_energies[solver]) for solver in solvers}
     avg_en_str = " ".join([f"{ising_energy_avg[solver]:.4f}" for solver in solvers])
+    relative_error = {
+        solver: np.abs(np.array(ising_energies[solver]) - best_found) / np.abs(best_found) for solver in solvers
+    }
     tts = {
         solver: mean_computation_time[solver]
-        + np.log(1 - 0.99)
+        * np.log(1 - 0.99)
         / np.log(
-            1
-            - np.sum(np.where(np.array(np.abs(ising_energies[solver])) <= 1.05 * np.abs(best_found), 1, 0))
-            / ans.config.nb_runs
+            1 - np.sum(relative_error[solver] <= 0.1) / ans.config.nb_runs
+            if (((np.max(relative_error[solver]) > 0.1)
+            and (np.min(relative_error[solver]) <= 0.1))
+            or np.min(relative_error[solver] > 0.1))
+            else 1- 0.99
         )
         for solver in solvers
     }
@@ -93,9 +96,9 @@ else:
         f.write(f"energy min| {min_en_str}\n")
         f.write(f"energy avg| {avg_en_str}\n")
         f.write(f"computation time| {comp_str}\n")
-        f.write(f"TTT 0.95| {tts_str}\n")
+        f.write(f"TTT 0.9| {tts_str}\n")
         f.write(f"operation count| {operation_str}\n")
-        f.write(f"approximation| {approx_str}\n")
+        f.write(f"relative error| {approx_str}\n")
         f.write("\n")
 
     logging.info(
