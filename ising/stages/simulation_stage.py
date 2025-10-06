@@ -44,7 +44,7 @@ class SimulationStage(Stage):
         else:
             self.benchmark_abbreviation = f"dummy_{self.config.problem_type}"
         if self.config.logfile_discrimination != "None":
-            self.logfile_discrimination = self.config.logfile_discrimination
+            self.logfile_discrimination = "_" + self.config.logfile_discrimination
         else:
             self.logfile_discrimination = ""
         if "run_id" in self.kwargs:
@@ -151,7 +151,7 @@ class SimulationStage(Stage):
                     logfile = (
                         logpath
                         / f"{solver}_{self.benchmark_abbreviation}_nbiter{num_iter}_run{trail_id +\
-                                                                                         start_run_id}_{self.logfile_discrimination}.log"
+                                                                                         start_run_id}{self.logfile_discrimination}.log"
                     )
                 else:
                     logfile = None
@@ -210,8 +210,6 @@ class SimulationStage(Stage):
                 Multiplicative().solve,
                 [
                     "dtMult",
-                    "initial_temp_cont",
-                    "end_temp_cont",
                     "seed",
                     "capacitance",
                     "resistance",
@@ -221,7 +219,8 @@ class SimulationStage(Stage):
                     "end_cluster_size",
                     "exponent",
                     "cluster_choice",
-                    "pseudo_length"
+                    "pseudo_length",
+                    "ode_choice",
                 ],
             ),
             "inSituSA": (InSituSASolver().solve, ["initial_temp", "cooling_rate", "nb_flips", "seed"]),

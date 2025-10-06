@@ -1,7 +1,7 @@
 import numpy as np
 import pathlib
 from pylfsr import LFSR
-
+# from diffeqpy import ode
 
 # from ising.stages import LOGGER
 from ising.solvers.base import SolverBase
@@ -22,33 +22,27 @@ class Multiplicative(SolverBase):
         resistance: float,
         capacitance: float,
         stop_criterion: float,
-        initial_temp_cont: float,
-        end_temp_cont: float,
         coupling: np.ndarray,
     ):
-        """Set the parameters for the solver.
+        """!Set the parameters for the solver.
 
-        Args:
-            resistance (float): the resistance of the system.
-            capacitance (float): the capacitance of the system.
-            frozen_nodes (np.ndarray | None): the nodes that are frozen.
-            stop_criterion (float): the stopping criterion to stop the solver when the voltages stagnate.
+        @param dt (float): time step.
+        @param num_iterations (int): the number of iterations.
+        @param resistance (float): the resistance of the system.
+        @param capacitance (float): the capacitance of the system.
+        @param frozen_nodes (np.ndarray | None): the nodes that are frozen.
+        @param stop_criterion (float): the stopping criterion to stop the solver when the voltages stagnate.
         """
         self.dt = np.float32(dt)
         self.num_iterations = num_iterations
         self.resistance = np.float32(resistance)
         self.capacitance = np.float32(capacitance)
         self.stop_criterion = stop_criterion
-        self.initial_temp_cont = initial_temp_cont
-        self.end_temp_cont = end_temp_cont
         self.coupling_d = coupling.astype(np.float32)
         self.quarter = np.float32(0.25)
         self.half = np.float32(0.5)
         self.four = np.float32(4.0)
         self.six = np.float32(6.0)
-
-    def mosfet(self, voltage: np.ndarray):
-        pass
 
     def dvdt(
         self,
@@ -67,11 +61,75 @@ class Multiplicative(SolverBase):
         """
         return dvdt_solver(t, vt, self.coupling_d, np.int8(self.bias), self.capacitance)
 
-    def inner_loop(self, model: IsingModel, state: np.ndarray):
-        """! Simulates the hardware
+    # def inner_loop_JL(
+    #     self, model: IsingModel, state: np.ndarray, logging: HDF5Logger | None = None
+    # ) -> tuple[np.ndarray, float, np.ndarray]:
+    #     tspan = (0.0, self.dt*self.num_iterations)
+
+
+    def inner_loop_FE(
+        self, model: IsingModel, state: np.ndarray, logging: HDF5Logger | None = None
+    ) -> tuple[np.ndarray, float, np.ndarray]:
+        """! Simulates the hardware with the Forward Euler method.
 
         @param model (IsingModel): the model to solve.
         @param state (np.ndarray): the initial state to start the simulation.
+        @param logging (HDF5Logger|None): the logger to use when flipping is disabled.
+
+        @return sigma (np.ndarray): the final discrete state of the system.
+        @return energy (float): the final energy of the system.
+        @return count (np.ndarray): the count of sign flips for every node.
+        """
+        # set up the simulation
+        i = 0
+        max_change = np.inf
+
+        if logging is not None:
+            logging.log(
+                state=np.sign(state[: model.num_variables]),
+                energy=model.evaluate(np.sign(state[: model.num_variables]).astype(np.float32)),
+                voltages=state,
+            )
+        new_state = state.copy().astype(np.float32)
+        change_sign = np.zeros((model.num_variables + int(self.bias),), dtype=bool)
+        dv = self.coupling_d @ np.sign(state)
+        norm_prev = np.linalg.norm(state, ord=np.inf)
+        while i < self.num_iterations and max_change > self.stop_criterion:
+
+            new_state = state + self.dt * dv
+            new_state[-1] = 1.0 if self.bias == 1 else new_state[-1]
+            new_state = np.clip(new_state, -1.0, 1.0)
+
+            change_sign[:] = np.sign(new_state) != np.sign(state)
+            if np.max(change_sign):
+                dv[:] += 2 * self.coupling_d[:, change_sign] @ np.sign(new_state[change_sign])
+
+            if i > 0 and i % 1000:
+                diff = np.abs(new_state - state)
+                max_change = np.max(diff) / (norm_prev if norm_prev != 0 else 1)
+                norm_prev = np.linalg.norm(new_state, ord=np.inf)
+            state = new_state.copy()
+            i += 1
+            if logging is not None:
+                logging.log(
+                    state=np.sign(new_state[: model.num_variables]),
+                    energy=model.evaluate(np.sign(new_state[: model.num_variables]).astype(np.float32)),
+                    voltages=new_state,
+                )
+        return (
+            np.sign(new_state[: model.num_variables]),
+            model.evaluate(np.sign(new_state[: model.num_variables]).astype(np.float32)),
+            change_sign.astype(np.int32),
+        )
+
+    def inner_loop_RK(
+        self, model: IsingModel, state: np.ndarray, logging: HDF5Logger | None = None
+    ) -> tuple[np.ndarray, float, np.ndarray]:
+        """! Simulates the hardware with a fourth order Runge-Kutta method.
+
+        @param model (IsingModel): the model to solve.
+        @param state (np.ndarray): the initial state to start the simulation.
+        @param logging (HDF5Logger|None): the logger to use when flipping is disabled.
 
         @return sigma (np.ndarray): the final discrete state of the system.
         @return energy (float): the final energy of the system.
@@ -87,14 +145,20 @@ class Multiplicative(SolverBase):
 
         count = np.zeros((model.num_variables,))
         norm_prev = np.linalg.norm(previous_voltages, ord=np.inf)
+        if logging is not None:
+            state = np.sign(previous_voltages[: model.num_variables])
+            energy = model.evaluate(state)
+            logging.log(state=state, energy=energy, voltages=previous_voltages)
         while i < self.num_iterations and max_change > self.stop_criterion:
-            # LOGGER.info(f"Iteration {i}")
             k1 = self.dt * self.dvdt(tk, previous_voltages)
             k2 = self.dt * self.dvdt(tk + self.dt, previous_voltages + k1)
             k3 = self.dt * self.dvdt(tk + self.half * self.dt, previous_voltages + self.quarter * (k1 + k2))
 
             new_voltages = previous_voltages + (k1 + k2 + self.four * k3) / self.six
-
+            if logging is not None:
+                state = np.sign(new_voltages[: model.num_variables])
+                energy = model.evaluate(state)
+                logging.log(state=state, energy=energy, voltages=new_voltages)
             tk += self.dt
             i += 1
 
@@ -126,30 +190,35 @@ class Multiplicative(SolverBase):
         resistance: float = 1.0,
         capacitance: float = 1.0,
         seed: int = 0,
-        initial_temp_cont: float = 0.0,
-        end_temp_cont: float = 0.05,
         stop_criterion: float = 1e-8,
+        ode_choice: str = "RK",
         file: pathlib.Path | None = None,
     ) -> tuple[np.ndarray, float]:
-        """Solves the given problem using a multiplicative coupling scheme.
+        """!Solves the given problem using a multiplicative coupling scheme.
 
-        Args:
-            model (IsingModel): the model to solve.
-            initial_state (np.ndarray): the initial spins of the nodes.
-            dtMult (float): time step.
-            num_iterations (int): the number of iterations.
-            resistance (float, optional): the resisitance of the system. Defaults to 1.0.
-            capacitance (float, optional): the capacitance of the system. Defaults to 1.0.
-            seed (int, optional): the seed for random number generation. Defaults to 0.
-            initial_temp_cont (float, optional): the initial temperature for the additive voltage noise.
-                                                 Defaults to 1.0.
-            end_temp_cont (float, optional): the final temperature for the additive voltage noise. Defaults to 0.05.
-            stop_criterion (float, optional): the stopping criterion to stop the solver when the voltages don't change
-                                              too much anymore. Defaults to 1e-8.
-            file (pathlib.Path, None, optional): the path to the logfile. Defaults to None.
+        @param model (IsingModel): the model to solve.
+        @param initial_state (np.ndarray): the initial spins of the nodes.
+        @param dtMult (float): time step.
+        @param num_iterations (int): the number of iterations.
+        @param nb_flipping (int): the number of flipping iterations.
+        @param cluster_threshold (float): the threshold for clustering.
+        @param init_cluster_size (float): the initial cluster size.
+        @param end_cluster_size (float): the final cluster size.
+        @param exponent (float): the exponent for the exponential decrease of the cluster size.
+        @param cluster_choice (str): the choice of clustering method.
+        @param pseudo_length (int | None): the sequence length of the pseudo-random number generator.
+        @param resistance (float): the resistance of the system.
+        @param capacitance (float): the capacitance of the system.
+        @param seed (int): the seed for random number generation.
+        @param stop_criterion (float): the stopping criterion to stop the solver when the voltages don't change
+        @param ode_choice (str): the choice of ODE solver.
+        @param file: (pathlib.Path,None): the path to the logfile
 
         Returns:
-            tuple[np.ndarray, float]: the best energy and the best sample.
+        @return state (np.ndarray): the final state of the system.
+        @return energy (float): best energy of the system.
+        @return computation_time (float): total computation time for analog simulation.
+        @return operation_count (int): the number of operations performed.
         """
 
         # Transform the model to one with no h and mean variance of J
@@ -174,14 +243,11 @@ class Multiplicative(SolverBase):
             resistance,
             capacitance,
             stop_criterion,
-            initial_temp_cont,
-            end_temp_cont,
             coupling,
         )
 
         # make sure the correct random seed is used
         np.random.seed(seed)
-        # make sure the correct random seed is used
         if pseudo_length is not None:
             degree = int(np.log2(pseudo_length + 1))
             if degree not in range(1, 13):
@@ -219,10 +285,17 @@ class Multiplicative(SolverBase):
             v = initial_state.astype(np.float32, copy=True)
 
         # Schema for logging
-        schema = {
-            "energy": np.float32,
-            "state": (np.int8, (num_var,)),
-        }
+        if nb_flipping == 1:
+            schema = {
+                "energy": np.float32,
+                "state": (np.int8, (num_var,)),
+                "voltages": (np.float32, (num_var + int(self.bias),)),
+            }
+        else:
+            schema = {
+                "energy": np.float32,
+                "state": (np.int8, (num_var,)),
+            }
 
         # Define cluster function
         choice = ""
@@ -253,6 +326,13 @@ class Multiplicative(SolverBase):
             "nb_bits": nb_bits,
         }
 
+        if ode_choice == "RK":
+            inner_loop = self.inner_loop_RK
+        elif ode_choice == "FE":
+            inner_loop = self.inner_loop_FE
+        else:
+            raise ValueError(f"Unknown ODE choice: {ode_choice}.")
+
         with HDF5Logger(file, schema) as log:
             if log.filename is not None:
                 self.log_metadata(
@@ -261,15 +341,19 @@ class Multiplicative(SolverBase):
                     model=model,
                     num_iterations=num_iterations,
                     time_step=dtMult,
-                    temperature=initial_temp_cont,
                     pseudo_length=pseudo_length,
                     cluster_choice=cluster_choice,
                     exponent=exponent,
                 )
             best_energy = np.inf
             best_sample = v[: model.num_variables].copy()
+            if nb_flipping == 1:
+                logging = log
+            else:
+                logging = None
+
             for it in range(nb_flipping):
-                sample, energy, count = self.inner_loop(model, v)
+                sample, energy, count = inner_loop(model, v, logging)
                 additional_information["count"] = count
                 additional_information["current_state"] = sample
 
@@ -281,7 +365,7 @@ class Multiplicative(SolverBase):
                 cluster = find_cluster(
                     self.size_function(
                         iteration=it,
-                        total_iterations=nb_flipping,
+                        total_iterations=nb_flipping + int(nb_flipping == 1),
                         init_size=init_size,
                         end_size=end_size,
                         exponent=exponent,
@@ -294,8 +378,11 @@ class Multiplicative(SolverBase):
                     v = np.block([v, np.float32(1.0)])
 
                 # Log everything
-                if log.filename is not None:
-                    log.log(energy=best_energy, state=best_sample)
+                if log.filename is not None and nb_flipping > 1:
+                    if nb_flipping > 1:
+                        log.log(energy=best_energy, state=best_sample)
+                    else:
+                        log.log(energy=best_energy, state=best_sample, voltages=best_sample)
 
             if log.filename is not None:
                 log.write_metadata(

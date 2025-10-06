@@ -32,6 +32,7 @@ def parse_hyperparameters(args: dict, num_iter: int) -> dict[str:]:
         hyperparameters["cluster_choice"] = args.cluster_choice
         hyperparameters["exponent"] = float(args.exponent)
         hyperparameters["pseudo_length"] = None if args.pseudo_length == "None" else int(args.pseudo_length)
+        hyperparameters["ode_choice"] = args.ode_choice
 
     # BRIM parameters
     if "BRIM" in args.solvers:

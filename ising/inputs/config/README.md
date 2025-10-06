@@ -57,8 +57,6 @@ The config file is written in YAML. It must has the following parameters:
 
 *dtMult:* [float] time step for the Multiplicative solver.
 
-*T_cont:* [float] will remove in branch
-
 *nb_flipping:* [int] amount of times flipping will be done. 
 
 *cluster_threshold:* [float] threshold value for designing the cluster.
@@ -67,19 +65,17 @@ The config file is written in YAML. It must has the following parameters:
 
 *end_cluster_size:* [float] final cluster size for flipping.This value is a float and between 0 and 1.
 
-*T_final_cont:* [float] will remove in branch
+*cluster_choice:* [str] The choice for the cluster. The choices are random, gradient, frequency, weighted_mean_smallest, weighted_mean_largest.
+
+*exponent:* [float] the exponent by which the exponential function of cluster size changes.
+
+*pseudo_length:* [int] the sequence length of the pseudo-random LFSR generator. Currently able to support lengths of 2^i - 1, i = [1, 12] and None. When None the generator is fully random and not pseudo-random.
 
 *resistance:* [float] the resistance used in Multiplicative solver. Default value is 1.
 
 *capacitance:* [float] the capacitance.
 
-*nb_flipping:* [int] amount of times flipping will be done. 
-
-*cluster_threshold:* [float] threshold value for designing the cluster.
-
-*init_cluster_size:* [float] the beginning cluster size for flipping. This value is a float between 0 and 1.
-
-*end_cluster_size:* [float] final cluster size for flipping.This value is a float and between 0 and 1.
+*ode_choice:* [str] which ODE solver to perform the simulation with. Currently RK (Runge-Kutta 4) and FE (Forward Euler) are implemented.
 
 **Parameters for BRIM solver**
 

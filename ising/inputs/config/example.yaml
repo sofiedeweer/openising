@@ -49,9 +49,6 @@ nb_flips: 0.5
 
 # Parameters for Multiplicative
 dtMult: 0.01
-T_cont: 0.05
-T_final_cont: 0.0005
-resistance: 1
 nb_flipping: 100
 cluster_threshold: 0.3
 init_cluster_size: 0.8
@@ -60,6 +57,8 @@ exponent: 3.0
 cluster_choice: "random"
 pseudo_length: None
 capacitance: 1
+resistance: 1
+ode_choice: "FE"
 
 # Parameters for BRIM
 dtBRIM: 1e-6  # 10us
