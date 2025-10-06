@@ -21,13 +21,18 @@ class TSPParserStage(Stage):
 
     def run(self) -> Any:
         """! Parse the TSP benchmark workload."""
-
-        LOGGER.debug(f"Parsing TSP benchmark: {self.benchmark_filename}")
-        graph: nx.Graph
-        best_found: float | None
-        graph, best_found = self.TSP_parser(benchmark=self.benchmark_filename)
-        A = float(self.config.weight_constant)
-        ising_model: IsingModel = TSP(graph=graph, weight_constant=A)
+        if self.config.dummy_creator:
+            dummy_dict = self.kwargs.get("dummy_dict", {})
+            graph = dummy_dict.get("graph", None)
+            best_found = dummy_dict.get("best_found", None)
+            ising_model = dummy_dict.get("ising_model", None)
+        else:
+            LOGGER.debug(f"Parsing TSP benchmark: {self.benchmark_filename}")
+            graph: nx.Graph
+            best_found: float | None
+            graph, best_found = self.TSP_parser(benchmark=self.benchmark_filename)
+            weight_constant = float(self.config.weight_constant)
+            ising_model: IsingModel = TSP(graph=graph, weight_constant=weight_constant)
 
         self.kwargs["config"] = self.config
         self.kwargs["ising_model"] = ising_model

@@ -1,6 +1,7 @@
 import numpy as np
 import networkx as nx
 import time as t
+import warnings
 
 from ising.stages.model.ising import IsingModel
 
@@ -18,7 +19,9 @@ def TSP(graph: nx.DiGraph, weight_constant: float = 1.0) -> IsingModel:
         model (IsingModel): Ising model of the TSP
     """
     if weight_constant < 1.0:
-        raise ValueError("weight_constant should be larger than 1.0")
+        warnings.warn("weight_constant should be larger than 1, using 1.0", RuntimeWarning)
+        weight_constant = 1.0
+        # raise ValueError("weight_constant should be larger than 1.0")
     N = len(graph.nodes)
     W = nx.linalg.adjacency_matrix(graph).toarray()
     maxW = np.max(W)

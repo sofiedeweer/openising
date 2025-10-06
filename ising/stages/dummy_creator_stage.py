@@ -38,6 +38,7 @@ class DummyCreatorStage(Stage):
                     self.config, "dummy_weight_constant") else 0.0
                 if not hasattr(self.config, "weight_constant"):
                     LOGGER.warning("No weight_constant provided in config, using default value of 1.0.")
+                    weight_constant = 1.0
                 LOGGER.info(f"size: {N}, seed: {seed}, weight_constant: {weight_constant}")
                 if self.problem_type == "TSP":
                     dummy_dict = self.generate_dummy_tsp(N, seed, weight_constant=weight_constant)
