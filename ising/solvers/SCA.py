@@ -86,9 +86,9 @@ class SCA(SolverBase):
                 hs = np.matmul(J, state) + model.h
 
                 Prob = self.get_prob(hs, state, q, T)
-                rand = np.random.uniform(0, 1)
+                rand = np.random.uniform(0, 1, size=(N,))
 
-                flipped_states = [y for y in range(N) if Prob[y] < rand]
+                flipped_states = [y for y in range(N) if Prob[y] < rand[y]]
 
                 tau[flipped_states] = -state[flipped_states]
                 state = np.copy(tau)
@@ -127,6 +127,13 @@ class SCA(SolverBase):
         Returns:
             probability (np.ndarray): probability of accepting the change of all nodes.
         """
-        values = (np.multiply(hs, sample) + q)/(2*T)
-        probs = 1/(1+np.exp(-values))
+        values = (hs * sample + q)
+        probs = np.zeros_like(values)
+        for i,val in enumerate(values):
+            if val > 2*T:
+                probs[i] = 1
+            elif val < -2*T:
+                probs[i] = 0
+            else:
+                probs[i] = val/(4*T) + 0.5
         return probs
