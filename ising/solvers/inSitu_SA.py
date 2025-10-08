@@ -46,7 +46,7 @@ class InSituSASolver(SolverBase):
             seed = int(time.time() * 1000)
         random.seed(seed)
 
-        coupling = np.diag(model.h) + model.J + model.J.T
+        coupling = -(np.diag(model.h) + model.J + model.J.T)
         nb_flips = int(nb_flips * model.num_variables)
 
         # Set up schema and metadata for logging
@@ -83,7 +83,8 @@ class InSituSASolver(SolverBase):
                         np.random.choice(model.num_variables, size=(nb_flips,), replace=False),
                     ),
                     np.float32(1),
-                    np.float32(0))
+                    np.float32(0),
+                )
                 # Obtain new state by flipping that node
                 sigma_new = state * (1 - 2 * sigma_f)
                 sigma_c = sigma_new * sigma_f
@@ -91,12 +92,12 @@ class InSituSASolver(SolverBase):
 
                 # Evaluate the new energy
                 f_T = 1 / (-0.006 * Temp + 5) - 0.2
-                delta = -sigma_r.T @ coupling @ sigma_c * f_T
-
+                delta = sigma_r.T @ coupling @ sigma_c * f_T
+                rand = np.random.uniform(0, 1)
                 # Determine whether to accept the new state (Metropolis)
                 if delta <= 0:
                     state = sigma_new
-                elif delta <= np.random.uniform(0, 1):
+                elif delta >= rand:
                     state = sigma_new
                 # state = sigma_new if change_state else state  # accept correct state for flip
 
@@ -107,11 +108,11 @@ class InSituSASolver(SolverBase):
                 Temp *= cooling_rate
 
             end_time = time.time()
-            nb_operations = num_iterations * (nb_flips + 6 * model.num_variables + 3 * nb_flips**2 + 1)
+            nb_operations = num_iterations * (
+                nb_flips + 6 * model.num_variables + (model.num_variables - nb_flips) * nb_flips + 1
+            )
             energy = model.evaluate(state)
             if logger.filename is not None:
-                logger.write_metadata(
-                    solution_state=state, solution_energy=energy, total_operations=nb_operations
-                )
+                logger.write_metadata(solution_state=state, solution_energy=energy, total_operations=nb_operations)
 
         return state, energy, end_time - start_time, nb_operations

@@ -68,7 +68,7 @@ class SASolver(SolverBase):
 
             # Setup initial state and energy
             T = initial_temp
-            state = np.sign(initial_state)
+            state = np.sign(initial_state).astype(np.float32)
             energy = model.evaluate(state)
             for _ in range(num_iterations):
                 # Select a random node to flip

@@ -86,7 +86,7 @@ class SCA(SolverBase):
                 hs = np.matmul(J, state) + model.h
 
                 Prob = self.get_prob(hs, state, q, T)
-                rand = np.random.rand(N)
+                rand = np.random.uniform(0, 1, size=(N,))
 
                 flipped_states = [y for y in range(N) if Prob[y] < rand[y]]
 
@@ -94,7 +94,7 @@ class SCA(SolverBase):
                 state = np.copy(tau)
 
                 if log.filename is not None:
-                    energy = model.evaluate(state)
+                    energy = model.evaluate(state.astype(np.float32))
                     log.log(energy=energy, state=state)
 
                 T = self.change_hyperparam(T, cooling_rate)
@@ -127,7 +127,7 @@ class SCA(SolverBase):
         Returns:
             probability (np.ndarray): probability of accepting the change of all nodes.
         """
-        values = np.multiply(hs, sample) + q
+        values = (hs * sample + q)
         probs = np.zeros_like(values)
         for i,val in enumerate(values):
             if val > 2*T:

@@ -10,6 +10,7 @@ from ising.stages.tsp_parser_stage import TSPParserStage
 from ising.stages.atsp_parser_stage import ATSPParserStage
 from ising.stages.mimo_parser_stage import MIMOParserStage
 from ising.stages.mimo_ber_calc_stage import MIMOBerCalcStage
+from ising.stages.qkp_parser_stage import QKPParserStage
 from ising.stages.tsp_energy_calc_stage import TSPEnergyCalcStage
 from ising.stages.simulation_stage import SimulationStage
 from ising.stages.initialization_stage import InitializationStage
@@ -43,6 +44,8 @@ def get_hamiltonian_energy(
         parser_stage = ATSPParserStage
     elif problem_type == "MIMO":
         parser_stage = MIMOParserStage
+    elif problem_type == "QKP":
+        parser_stage = QKPParserStage
     else:
         logging.error(f"Parser for {problem_type} is not implemented.")
         raise NotImplementedError(f"Parser for {problem_type} is not implemented.")

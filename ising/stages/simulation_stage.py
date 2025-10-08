@@ -39,9 +39,12 @@ class SimulationStage(Stage):
         self.gen_logfile = self.config.gen_logfile if hasattr(self.config, "gen_logfile") else False
         self.ising_model = ising_model
         self.best_found = best_found if best_found is not None else float("inf")
-        self.benchmark_abbreviation = self.config.benchmark.split("/")[-1].split(".")[0]
+        if not config.dummy_creator:
+            self.benchmark_abbreviation = self.config.benchmark.split("/")[-1].split(".")[0]
+        else:
+            self.benchmark_abbreviation = f"dummy_{self.config.problem_type}"
         if self.config.logfile_discrimination != "None":
-            self.logfile_discrimination = self.config.logfile_discrimination
+            self.logfile_discrimination = "_" + self.config.logfile_discrimination
         else:
             self.logfile_discrimination = ""
         if "run_id" in self.kwargs:
@@ -124,16 +127,16 @@ class SimulationStage(Stage):
         num_iter = self.config.iter_list
         hyperparameters = parse_hyperparameters(self.config, num_iter)
 
-        optim_state_collect = {solver:[] for solver in self.config.solvers}
-        optim_energy_collect = {solver:[] for solver in self.config.solvers}
-        comp_time_collect = {solver:[] for solver in self.config.solvers}
+        optim_state_collect = {solver: [] for solver in self.config.solvers}
+        optim_energy_collect = {solver: [] for solver in self.config.solvers}
+        comp_time_collect = {solver: [] for solver in self.config.solvers}
         nb_operations_collect = {solver: -1 for solver in self.config.solvers}
         logfile_collect = []
         pbar = tqdm.tqdm(range(nb_runs), ascii="░▒█", desc=f"Running trials of thread {os.getpid()}")
         for trail_id in pbar:
             # Set the seed for flipping mechanism
-            hyperparameters["seed"] = trail_id + 1 + int(self.config.seed + initialization_seed)
-
+            if self.config.seed > 0:
+                hyperparameters["seed"] = trail_id + 1 + int(self.config.seed)
             self.kwargs["config"] = self.config
             self.kwargs["ising_model"] = self.ising_model
             self.kwargs["trail_id"] = trail_id
@@ -147,8 +150,9 @@ class SimulationStage(Stage):
                 if self.gen_logfile and self.benchmark_abbreviation != "MIMO":
                     logfile = (
                         logpath
-                        / f"{solver}_{self.benchmark_abbreviation}_nbiter{num_iter}_run{trail_id +\
-                                                                                         start_run_id}_{self.logfile_discrimination}.log"
+                        / f"{solver}_{self.benchmark_abbreviation}_run{trail_id + start_run_id}{
+                            self.logfile_discrimination
+                        }.log"
                     )
                 else:
                     logfile = None
@@ -198,19 +202,17 @@ class SimulationStage(Stage):
                 [
                     "dtBRIM",
                     "capacitance",
+                    "resistance",
                     "stop_criterion",
-                    "initial_temp_cont",
-                    "end_temp_cont",
                     "seed",
                     "coupling_annealing",
+                    "do_flipping"
                 ],
             ),
             "Multiplicative": (
                 Multiplicative().solve,
                 [
                     "dtMult",
-                    "initial_temp_cont",
-                    "end_temp_cont",
                     "seed",
                     "capacitance",
                     "resistance",
@@ -220,7 +222,8 @@ class SimulationStage(Stage):
                     "end_cluster_size",
                     "exponent",
                     "cluster_choice",
-                    "pseudo_length"
+                    "pseudo_length",
+                    "ode_choice",
                 ],
             ),
             "inSituSA": (InSituSASolver().solve, ["initial_temp", "cooling_rate", "nb_flips", "seed"]),

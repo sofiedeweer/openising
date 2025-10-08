@@ -19,7 +19,7 @@ logging.basicConfig(level=logging_level, format=logging_format, stream=sys.stdou
 
 # Input file directory
 problem_type = "Maxcut"  # Specify the problem type [Maxcut, TSP, ATSP, MIMO]
-config_path = "ising/inputs/config/example.yaml"
+config_path = "ising/inputs/config/config_K2000_results.yaml"
 
 # Run the Ising model simulation
 ans, debug_info = api.get_hamiltonian_energy(
@@ -29,7 +29,7 @@ ans, debug_info = api.get_hamiltonian_energy(
 )
 
 # Output summary file
-output_file = Path("./simulation_summary.pkl")
+output_file = Path(f"./simulation_summary_{ans.benchmark}.pkl")
 solvers = ans.config.solvers
 mean_computation_time = {solver: np.mean(ans.computation_time[solver]) for solver in solvers}
 comp_str = " ".join([f"{mean_computation_time[solver]:.4f}s" for solver in solvers])
@@ -42,6 +42,7 @@ if problem_type == "MIMO":
         f.write("\n")
         f.write("=====================\n")
         f.write(f"results of running {ans.benchmark} with {config_path.split('/')[-1]}:\n")
+        f.write(f"logfile discriminator: {ans.config.logfile_discrimination}\n")
         f.write("=====================\n")
         f.write("MIMO results:\n")
         f.write(f"SNR|BER  {solver_str}\n")
@@ -62,13 +63,18 @@ else:
     min_en_str = " ".join([f"{ising_energy_min[solver]:.4f}" for solver in solvers])
     ising_energy_avg = {solver: np.mean(ising_energies[solver]) for solver in solvers}
     avg_en_str = " ".join([f"{ising_energy_avg[solver]:.4f}" for solver in solvers])
+    relative_error = {
+        solver: np.abs(np.array(ising_energies[solver]) - best_found) / np.abs(best_found) for solver in solvers
+    }
     tts = {
         solver: mean_computation_time[solver]
-        + np.log(1 - 0.99)
+        * np.log(1 - 0.99)
         / np.log(
-            1
-            - np.sum(np.where(np.array(np.abs(ising_energies[solver])) <= 1.05 * np.abs(best_found), 1, 0))
-            / ans.config.nb_runs
+            1 - np.sum(relative_error[solver] <= 0.1) / ans.config.nb_runs
+            if (((np.max(relative_error[solver]) > 0.1)
+            and (np.min(relative_error[solver]) <= 0.1))
+            or np.min(relative_error[solver] > 0.1))
+            else 1- 0.99
         )
         for solver in solvers
     }
@@ -81,6 +87,7 @@ else:
         f.write("\n")
         f.write("=====================\n")
         f.write(f"results of running {ans.benchmark} with {config_path.split('/')[-1]}:\n")
+        f.write(f"logfile discriminator: {ans.config.logfile_discrimination}\n")
         f.write(f"reference energy {best_found}\n")
         f.write("=====================\n")
         f.write("Simulation results:\n")
@@ -89,13 +96,13 @@ else:
         f.write(f"energy min| {min_en_str}\n")
         f.write(f"energy avg| {avg_en_str}\n")
         f.write(f"computation time| {comp_str}\n")
-        f.write(f"TTT 0.95| {tts_str}\n")
+        f.write(f"TTT 0.9| {tts_str}\n")
         f.write(f"operation count| {operation_str}\n")
-        f.write(f"approximation| {approx_str}\n")
+        f.write(f"relative error| {approx_str}\n")
         f.write("\n")
 
     logging.info(
-        "benchmark: %s, reference: %s, energy max: %s, min: %s, avg: %.2s",
+        "benchmark: %s, \n reference: %s,\n energy max: %s, \n min: %s, \n avg: %s",
         benchmark,
         best_found,
         ising_energy_max,

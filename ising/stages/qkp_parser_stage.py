@@ -23,8 +23,8 @@ class QKPParserStage(Stage):
         best_found: float | None
         graph, best_found = self.QKP_parser(benchmark=self.benchmark_filename)
 
-        penalty_value = float(self.config.penalty_value)
-        ising_model: IsingModel = self.generate_knapsack(graph=graph, penalty_value=penalty_value)
+        penalty_value = float(self.config.weight_constant)
+        ising_model: IsingModel = self.generate_knapsack(graph, penalty_value)
 
         self.kwargs["config"] = self.config
         self.kwargs["ising_model"] = ising_model
@@ -33,7 +33,7 @@ class QKPParserStage(Stage):
         sub_stage = self.list_of_callables[0](self.list_of_callables[1:], **self.kwargs)
         yield from sub_stage.run()
 
-    @staticmethod
+
     def generate_knapsack(self, graph: nx.Graph, penalty_value: float) -> IsingModel:
         """! Generates an Ising model from the given undirected nx graph
 
