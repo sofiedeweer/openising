@@ -39,9 +39,10 @@ def parse_hyperparameters(args: dict, num_iter: int) -> dict[str:]:
         dtBRIM = float(args.dtBRIM)
         hyperparameters["dtBRIM"] = dtBRIM
         hyperparameters["capacitance"] = float(args.capacitance)
+        hyperparameters["resistance"] = float(args.resistance)
         hyperparameters["stop_criterion"] = float(args.stop_criterion)
-        hyperparameters["initial_temp_cont"] = float(args.T_cont)
-        hyperparameters["end_temp_cont"] = float(args.T_final_cont)
+        hyperparameters["do_flipping"] = bool(args.do_flipping)
+        hyperparameters["coupling_annealing"] = bool(args.coupling_annealing)
 
     # SA parameters
     if "SA" in args.solvers or "SCA" in args.solvers or "inSituSA" in args.solvers or "DSA" in args.solvers:

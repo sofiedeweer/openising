@@ -202,9 +202,11 @@ class SimulationStage(Stage):
                 [
                     "dtBRIM",
                     "capacitance",
+                    "resistance",
                     "stop_criterion",
                     "seed",
                     "coupling_annealing",
+                    "do_flipping"
                 ],
             ),
             "Multiplicative": (

@@ -83,6 +83,10 @@ The config file is written in YAML. It must has the following parameters:
 
 *stop_criterion:* [float] smallest possible change of the voltages to mark convergence in the Multiplicatve solver.
 
+*coupling_annealing:* [bool] Whether to slowly anneal the coupling values.
+
+*do_flipping:* [bool] Whether to perform the flipping.
+
 **Parameters for SB (bSB/dSB) solver**
 
 *dtSB:* [float] the time step used in the Simulated Bifurcation solvers (dSB and bSB).

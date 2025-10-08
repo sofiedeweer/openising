@@ -63,6 +63,8 @@ ode_choice: "FE"
 # Parameters for BRIM
 dtBRIM: 1e-6  # 10us
 stop_criterion: 1e-6  # 1uV
+do_flipping: True
+coupling_annealing: True
 
 # Parameters for SB
 dtSB: 0.01

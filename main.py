@@ -19,7 +19,7 @@ logging.basicConfig(level=logging_level, format=logging_format, stream=sys.stdou
 
 # Input file directory
 problem_type = "Maxcut"  # Specify the problem type [Maxcut, TSP, ATSP, MIMO]
-config_path = "ising/inputs/config/example.yaml"
+config_path = "ising/inputs/config/config_K2000_results.yaml"
 
 # Run the Ising model simulation
 ans, debug_info = api.get_hamiltonian_energy(
