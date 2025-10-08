@@ -21,6 +21,9 @@ ENV/
 __pycache__/
 *.py[cod]
 
+# BRIM solver
+**/BRIM.py
+
 # Figures and output files
 *.png
 *.jpg

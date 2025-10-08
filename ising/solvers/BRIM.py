@@ -11,6 +11,11 @@ from ising.utils.numpy import triu_to_symm
 class BRIM(SolverBase):
     def __init__(self):
         self.name = "BRIM"
+        self.init_prob = 0.02
+        self.end_prob = 1e-6
+        self.fourth = np.float32(1 / 4)
+        self.three = np.float32(3)
+        self.two_thirds = np.float32(2 / 3)
 
     def Ka(self, time: float, end_time: float) -> float:
         """Returns the coupling annealing term.
@@ -58,29 +63,6 @@ class BRIM(SolverBase):
             dv[-1] = 0.0
         return dv
 
-    def set_parameters(
-        self,
-        model: IsingModel,
-        capacitance: float,
-        resistance: float,
-        initial_prob: float,
-        prob_change: float,
-        bias: bool,
-        do_flipping: bool,
-    ):
-        self.num_variables = model.num_variables
-        self.capacitance = np.float32(capacitance)
-        self.resistance = np.float32(resistance)
-        self.p = initial_prob
-        self.prob_change = prob_change
-        self.bias = bias
-        self.do_flipping = do_flipping
-        self.chosen_flips = np.zeros(self.num_variables, dtype=bool)
-        self.flip_voltages = np.zeros(self.num_variables, dtype=np.float32)
-        self.fourth = np.float32(1 / 4)
-        self.three = np.float32(3)
-        self.two_thirds = np.float32(2 / 3)
-
     def solve(
         self,
         model: IsingModel,
@@ -122,10 +104,10 @@ class BRIM(SolverBase):
         # Transform the model to one with no h and mean variance of J
         if np.linalg.norm(model.h) >= 1e-10:
             new_model = model.transform_to_no_h()
-            bias = True
+            self.bias = True
         else:
             new_model = model
-            bias = False
+            self.bias = False
         J = triu_to_symm(new_model.J).astype(np.float32) / resistance
 
         # Make sure the correct seed is used
@@ -134,7 +116,7 @@ class BRIM(SolverBase):
         np.random.seed(seed)
 
         # Ensure the bias node is added and add noise to the initial voltages
-        if bias:
+        if self.bias:
             v = np.block([initial_state, 1.0])
         else:
             v = initial_state
@@ -148,12 +130,15 @@ class BRIM(SolverBase):
         }
 
         # Set up the flipping probability
-        init_prob = 0.02
-        end_prob = 1e-6
-        prob_change = (init_prob - end_prob) / (num_iterations - 1)
+        self.prob_change = (self.init_prob - self.end_prob) / (num_iterations - 1)
 
-        # Store all parameters
-        self.set_parameters(model, capacitance, resistance, init_prob, prob_change, bias, do_flipping)
+        # Set all parameters
+        self.num_variables = model.num_variables
+        self.capacitance = np.float32(capacitance)
+        self.resistance = np.float32(resistance)
+        self.do_flipping = do_flipping
+        self.chosen_flips = np.zeros(self.num_variables, dtype=bool)
+        self.flip_voltages = np.zeros(self.num_variables, dtype=np.float32)
 
         with HDF5Logger(file, schema) as log:
             # Log the initial metadata
