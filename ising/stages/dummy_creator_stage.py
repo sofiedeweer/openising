@@ -18,7 +18,6 @@ class DummyCreatorStage(Stage):
         super().__init__(list_of_callables, **kwargs)
         self.config = config
         self.problem_type = config.problem_type
-        self.config.problem_type = self.problem_type
 
     def run(self) -> Any:
         """! Creates a dummy Ising model."""
