@@ -22,7 +22,7 @@ __pycache__/
 *.py[cod]
 
 # BRIM solver
-**/BRIM.py
+/ising/solvers/BRIM.py
 
 # Figures and output files
 *.png
