@@ -22,16 +22,7 @@ def parse_hyperparameters(args: dict) -> dict[str:]:
     hyperparameters = dict()
 
     # seed hyperparameter
-    if (
-        "Multiplicative" in args.solvers
-        or "BRIM" in args.solvers
-        or "SA" in args.solvers
-        or "SCA" in args.solvers
-        or "inSituSA" in args.solvers
-        or "DSA" in args.solvers
-        or "CIM" in args.solvers
-    ):
-        hyperparameters["seed"] = int(args.seed)
+    hyperparameters["seed"] = int(args.seed)
 
     if "Multiplicative" in args.solvers or "BRIM" in args.solvers:
         hyperparameters["capacitance"] = float(args.capacitance)
