@@ -236,7 +236,7 @@ class SimulationStage(Stage):
                 model=model,
                 initial_state=s_init,
                 num_iterations=hyperparameters[
-                    "num_iterations_" + solver if (solver != "bSB" or solver != "dSB") else "SB"
+                    "num_iterations_" + solver if ((solver != "bSB") or (solver != "dSB")) else "SB"
                 ],
                 file=logfile,
                 **chosen_hyperparameters,
