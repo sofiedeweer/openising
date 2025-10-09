@@ -196,15 +196,7 @@ class SimulationStage(Stage):
         solvers = {
             "BRIM": (
                 BRIM().solve,
-                [
-                    "dtBRIM",
-                    "capacitance",
-                    "resistance",
-                    "stop_criterion",
-                    "seed",
-                    "coupling_annealing",
-                    "do_flipping"
-                ],
+                ["dtBRIM", "capacitance", "resistance", "stop_criterion", "seed", "coupling_annealing", "do_flipping"],
             ),
             "Multiplicative": (
                 Multiplicative().solve,
@@ -221,7 +213,7 @@ class SimulationStage(Stage):
                     "cluster_choice",
                     "pseudo_length",
                     "ode_choice",
-                    "stop_criterion"
+                    "stop_criterion",
                 ],
             ),
             "inSituSA": (InSituSASolver().solve, ["initial_temp_inSituSA", "cooling_rate", "nb_flips", "seed"]),
@@ -240,7 +232,9 @@ class SimulationStage(Stage):
             optim_state, optim_energy, computation_time, operation_count = func(
                 model=model,
                 initial_state=s_init,
-                num_iterations=hyperparameters["num_iterations_" + solver],
+                num_iterations=hyperparameters[
+                    "num_iterations_" + solver if (solver != "bSB" or solver != "dSB") else "SB"
+                ],
                 file=logfile,
                 **chosen_hyperparameters,
             )
