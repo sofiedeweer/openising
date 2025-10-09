@@ -221,8 +221,8 @@ class SimulationStage(Stage):
             "SA": (SASolver().solve, ["initial_temp", "cooling_rate", "seed"]),
             "DSA": (DSASolver().solve, ["initial_temp", "cooling_rate", "seed"]),
             "SCA": (SCA().solve, ["initial_temp", "cooling_rate", "q", "r_q", "seed"]),
-            "bSB": (ballisticSB().solve, ["c0", "dtSB", "a0"]),
-            "dSB": (discreteSB().solve, ["c0", "dtSB", "a0"]),
+            "bSB": (ballisticSB().solve, ["c0", "dtSB", "a0", "seed"]),
+            "dSB": (discreteSB().solve, ["c0", "dtSB", "a0", "seed"]),
             "CIM": (CIMSolver().solve, ["dtCIM", "zeta", "seed"]),
         }
         if solver in solvers:
