@@ -5,8 +5,6 @@ The config file is written in YAML. It must has the following parameters:
 
 *benchmark:* [str] the workload file name, corresponding to the problem type set in API.
 
-*iter_list:* [positive int] also called as trail length, the number (integer) of iterations to run in the solver. Multiple values can be defined so that solvers will run with different trail length.
-
 *solvers:* [str] solvers to run. Options include: BRIM, SA, bSB, dSB, SCA, Multiplicative, all
 
 *nb_runs:* [positive int] number (integer) of trials to run.
@@ -24,6 +22,10 @@ The config file is written in YAML. It must has the following parameters:
 *logfile_discrimination:* [str | None] How the logfiles can be further discriminated against each other. If None, no discriminator will be made.
 
 ## Following parameters are optional, depending on the solvers used.
+
+**For each solver used**
+
+*num_iterations_{solver_name}:* [positive int] The amount of iterations the solver performs to converge to a solution.
 
 **Parameters for SA solver**
 
@@ -45,7 +47,7 @@ The config file is written in YAML. It must has the following parameters:
 
 **Parameters for in-Situ SA solver**
 
-*T:* [float] initial temperature for the annealing solvers (in-Situ SA, SA and SCA).
+*initial_temp_inSituSA:* [float] initial temperature for the annealing solvers. This one is different from the other annealing based solvers due to the larger temperature range.
 
 *T_final:* [float] final temperature, which should be lower than *T*, for the annealing solvers (in-Situ SA, SA and SCA).
 
@@ -99,6 +101,8 @@ The config file is written in YAML. It must has the following parameters:
 *dtCIM*: [float] the time step used to simulate the equations.
 
 *zeta*: [float] the parameter used for displacement.
+
+*seed:* [positive int] The seed used for random number generation.
 
 ## Following parameters are required only when the targeted benchmark is TSP.
 

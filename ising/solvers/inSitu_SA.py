@@ -19,7 +19,7 @@ class InSituSASolver(SolverBase):
         model: IsingModel,
         initial_state: np.ndarray,
         num_iterations: int,
-        initial_temp: float,
+        initial_temp_inSituSA: float,
         cooling_rate: float,
         nb_flips: float,
         seed: int | None = None,
@@ -63,7 +63,7 @@ class InSituSASolver(SolverBase):
                     model_name=self.name,
                     problem_size=model.num_variables,
                     num_iterations=num_iterations,
-                    initial_temp=initial_temp,
+                    initial_temp=initial_temp_inSituSA,
                     cooling_rate=cooling_rate,
                     nb_flips=nb_flips,
                     seed=seed,
@@ -72,7 +72,7 @@ class InSituSASolver(SolverBase):
             start_time = time.time()
 
             # Setup initial state and energy
-            Temp = initial_temp
+            Temp = initial_temp_inSituSA
             state = np.sign(initial_state, dtype=np.float32)
             energy = model.evaluate(state)
             for _ in range(num_iterations):

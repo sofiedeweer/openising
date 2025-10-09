@@ -9,7 +9,7 @@ from ising.utils.helper_functions import return_rx
 from ising.utils.numpy import triu_to_symm
 
 
-def parse_hyperparameters(args: dict, num_iter: int) -> dict[str:]:
+def parse_hyperparameters(args: dict) -> dict[str:]:
     """Parses the arguments needed for the solvers.
 
     Args:
@@ -21,10 +21,27 @@ def parse_hyperparameters(args: dict, num_iter: int) -> dict[str:]:
     """
     hyperparameters = dict()
 
+    # seed hyperparameter
+    if (
+        "Multiplicative" in args.solvers
+        or "BRIM" in args.solvers
+        or "SA" in args.solvers
+        or "SCA" in args.solvers
+        or "inSituSA" in args.solvers
+        or "DSA" in args.solvers
+        or "CIM" in args.solvers
+    ):
+        hyperparameters["seed"] = int(args.seed)
+
+    if "Multiplicative" in args.solvers or "BRIM" in args.solvers:
+        hyperparameters["capacitance"] = float(args.capacitance)
+        hyperparameters["resistance"] = float(args.resistance)
+        hyperparameters["stop_criterion"] = float(args.stop_criterion)
+
     # Multiplicative parameters
     if "Multiplicative" in args.solvers:
+        hyperparameters["num_iterations_Multiplicative"] = int(args.num_iterations_Multiplicative)
         hyperparameters["dtMult"] = float(args.dtMult)
-        hyperparameters["resistance"] = float(args.resistance)
         hyperparameters["nb_flipping"] = int(args.nb_flipping)
         hyperparameters["cluster_threshold"] = float(args.cluster_threshold)
         hyperparameters["init_cluster_size"] = float(args.init_cluster_size)
@@ -36,45 +53,62 @@ def parse_hyperparameters(args: dict, num_iter: int) -> dict[str:]:
 
     # BRIM parameters
     if "BRIM" in args.solvers:
-        dtBRIM = float(args.dtBRIM)
-        hyperparameters["dtBRIM"] = dtBRIM
-        hyperparameters["capacitance"] = float(args.capacitance)
-        hyperparameters["resistance"] = float(args.resistance)
-        hyperparameters["stop_criterion"] = float(args.stop_criterion)
+        hyperparameters["num_iterations_BRIM"] = int(args.num_iterations_BRIM)
+        hyperparameters["dtBRIM"] = float(args.dtBRIM)
         hyperparameters["do_flipping"] = bool(args.do_flipping)
         hyperparameters["coupling_annealing"] = bool(args.coupling_annealing)
 
-    # SA parameters
+    # SA-like parameters
     if "SA" in args.solvers or "SCA" in args.solvers or "inSituSA" in args.solvers or "DSA" in args.solvers:
         hyperparameters["initial_temp"] = float(args.T)
         Tfin = float(args.T_final)
+
+    if "SA" in args.solvers or "DSA" in args.solvers:
+        hyperparameters["num_iterations_SA"] = int(args.num_iterations_SA)
         hyperparameters["cooling_rate"] = (
-            return_rx(num_iter, hyperparameters["initial_temp"], Tfin) if hyperparameters["initial_temp"] != 0 else 0.0
+            return_rx(hyperparameters["num_iterations_SA"], hyperparameters["initial_temp"], Tfin)
+            if hyperparameters["initial_temp"] != 0
+            else 0.0
         )
-        hyperparameters["seed"] = int(args.seed)
 
     # in-Situ SA parameters
     if "inSituSA" in args.solvers:
+        hyperparameters["initial_temp_inSituSA"] = float(args.initial_temp_inSituSA)
+        hyperparameters["num_iterations_inSituSA"] = int(args.num_iterations_inSituSA)
         hyperparameters["nb_flips"] = float(args.nb_flips)
+        hyperparameters["cooling_rate"] = (
+            return_rx(hyperparameters["num_iterations_inSituSA"], hyperparameters["initial_temp_inSituSA"], Tfin)
+            if hyperparameters["initial_temp_inSituSA"] != 0
+            else 0.0
+        )
 
     # SCA parameters
     if "SCA" in args.solvers:
+        hyperparameters["num_iterations_SCA"] = int(args.num_iterations_SCA)
         hyperparameters["q"] = float(args.q)
         hyperparameters["r_q"] = (
-            return_rx(num_iter, hyperparameters["q"], float(args.q_final)) if hyperparameters["q"] != 0 else 0.0
+            return_rx(hyperparameters["num_iterations_SCA"], hyperparameters["q"], float(args.q_final))
+            if hyperparameters["q"] != 0
+            else 0.0
+        )
+        hyperparameters["cooling_rate"] = (
+            return_rx(hyperparameters["num_iterations_SCA"], hyperparameters["initial_temp"], Tfin)
+            if hyperparameters["initial_temp"] != 0
+            else 0.0
         )
 
     # SB parameters
     if "dSB" in args.solvers or "bSB" in args.solvers:
+        hyperparameters["num_iterations_SB"] = int(args.num_iterations_SB)
         hyperparameters["dtSB"] = float(args.dtSB)
         hyperparameters["a0"] = float(args.a0)
         hyperparameters["c0"] = float(args.c0)
 
     # CIM parameters
     if "CIM" in args.solvers:
+        hyperparameters["num_iterations_CIM"] = int(args.num_iterations_CIM)
         hyperparameters["dtCIM"] = float(args.dtCIM)
         hyperparameters["zeta"] = float(args.zeta)
-        hyperparameters["seed"] = int(args.seed)
 
     return hyperparameters
 

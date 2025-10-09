@@ -124,8 +124,7 @@ class SimulationStage(Stage):
     def partial_runs(self, nb_runs: int, logpath: pathlib.Path, initialization_seed: int, start_run_id: int = 0):
         start_time = datetime.datetime.now()
         LOGGER.info(f"Simulation started at {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        num_iter = self.config.iter_list
-        hyperparameters = parse_hyperparameters(self.config, num_iter)
+        hyperparameters = parse_hyperparameters(self.config)
 
         optim_state_collect = {solver: [] for solver in self.config.solvers}
         optim_energy_collect = {solver: [] for solver in self.config.solvers}
@@ -158,7 +157,7 @@ class SimulationStage(Stage):
                     logfile = None
 
                 optim_state, optim_energy, computation_time, nb_operations = self.run_solver(
-                    solver, num_iter, initial_state, self.ising_model, logfile, **hyperparameters
+                    solver, initial_state, self.ising_model, logfile, **hyperparameters
                 )
 
                 optim_state_collect[solver].append(optim_state)
@@ -177,7 +176,6 @@ class SimulationStage(Stage):
     def run_solver(
         self,
         solver: str,
-        num_iter: int,
         s_init: np.ndarray,
         model: IsingModel,
         logfile: pathlib.Path | None = None,
@@ -186,7 +184,6 @@ class SimulationStage(Stage):
         """! Solves the given problem with the specified solver.
 
         @param solver: The solver to use
-        @param num_iter: The number of iterations to run the solver
         @param s_init: Initial state for the solver
         @param model: The Ising model to use for the solver
         @param logfile: Path to the logfile to store data. Defaults to None.
@@ -224,9 +221,10 @@ class SimulationStage(Stage):
                     "cluster_choice",
                     "pseudo_length",
                     "ode_choice",
+                    "stop_criterion"
                 ],
             ),
-            "inSituSA": (InSituSASolver().solve, ["initial_temp", "cooling_rate", "nb_flips", "seed"]),
+            "inSituSA": (InSituSASolver().solve, ["initial_temp_inSituSA", "cooling_rate", "nb_flips", "seed"]),
             "SA": (SASolver().solve, ["initial_temp", "cooling_rate", "seed"]),
             "DSA": (DSASolver().solve, ["initial_temp", "cooling_rate", "seed"]),
             "SCA": (SCA().solve, ["initial_temp", "cooling_rate", "q", "r_q", "seed"]),
@@ -242,7 +240,7 @@ class SimulationStage(Stage):
             optim_state, optim_energy, computation_time, operation_count = func(
                 model=model,
                 initial_state=s_init,
-                num_iterations=num_iter,
+                num_iterations=hyperparameters["num_iterations_" + solver],
                 file=logfile,
                 **chosen_hyperparameters,
             )

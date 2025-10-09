@@ -5,10 +5,6 @@
 # Benchmark file name
 benchmark: ./ising/benchmarks/MIMO/Nr5_Nt5_M16.txt
 
-# Number of iteration to check in each trial (trail length)
-iter_list: 50000
-
-
 # Solver to use: [BRIM, SA, DSA, inSituSA, bSB, dSB, SCA, Multiplicative, CIM, all]
 solvers:
   - bSB
@@ -36,18 +32,23 @@ logfile_discrimination: None
 #################################
 
 # Parameters for SA
+num_iterations_SA: 1
 T: 50.0
 T_final: 0.05
 seed: 100
 
 # Parameters for SCA
+num_iterations_SCA: 1
 q: 0.0
 q_final: 10.0
 
 # Parameters for in-Situ SA
+initial_temp_inSituSA: 690
+num_iterations_inSituSA: 1
 nb_flips: 0.5
 
 # Parameters for Multiplicative
+num_iterations_Multiplicative: 1
 dtMult: 0.01
 nb_flipping: 100
 cluster_threshold: 0.3
@@ -61,17 +62,20 @@ resistance: 1
 ode_choice: "FE"
 
 # Parameters for BRIM
+num_iterations_BRIM: 1
 dtBRIM: 1e-6  # 10us
 stop_criterion: 1e-6  # 1uV
 do_flipping: True
 coupling_annealing: True
 
 # Parameters for SB
+num_iterations_SB: 1
 dtSB: 0.01
 a0: 1.0
 c0: 0.0
 
 # Parameters for CIM
+num_iterations_CIM: 1
 dtCIM: 0.25
 zeta: 1.0
 
