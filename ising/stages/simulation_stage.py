@@ -136,13 +136,11 @@ class SimulationStage(Stage):
             # Set the seed for flipping mechanism
             if self.config.seed > 0:
                 hyperparameters["seed"] = start_run_id + trail_id + int(self.config.seed)
-                LOGGER.info(f"Using seed {hyperparameters['seed']} for trail {trail_id + start_run_id}")
             self.kwargs["config"] = self.config
             self.kwargs["ising_model"] = self.ising_model
             self.kwargs["trail_id"] = trail_id
             if len(self.list_of_callables) >= 1:
                 self.kwargs["initialization_seed"] = initialization_seed
-                LOGGER.info(f"Using initialization seed {self.kwargs['initialization_seed']} for trail {start_run_id}")
                 sub_stage = self.list_of_callables[0](self.list_of_callables[1:], **self.kwargs)
                 initial_state, _ = sub_stage.run()
             else:
@@ -236,7 +234,7 @@ class SimulationStage(Stage):
                 model=model,
                 initial_state=s_init,
                 num_iterations=hyperparameters[
-                    "num_iterations_" + solver if ((solver != "bSB") and (solver != "dSB")) else "SB"
+                    "num_iterations_" + solver if ((solver != "bSB") and (solver != "dSB")) else "num_iterations_SB"
                 ],
                 file=logfile,
                 **chosen_hyperparameters,
