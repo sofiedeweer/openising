@@ -79,12 +79,12 @@ class SimulationStage(Stage):
         if self.config.use_multiprocessing:
             runs_over = nb_runs - runs_per_thread * nb_cores
             tasks = [
-                (runs_per_thread + 1, logpath, i, i * (runs_per_thread + 1))
+                (runs_per_thread + 1, logpath, self.config.initialization_seed + i, i * (runs_per_thread + 1))
                 if i < runs_over
                 else (
                     runs_per_thread,
                     logpath,
-                    i,
+                    self.config.initialization_seed + i,
                     runs_over * (runs_per_thread + 1) + (i - runs_over) * runs_per_thread,
                 )
                 for i in range(nb_cores)
@@ -135,11 +135,14 @@ class SimulationStage(Stage):
         for trail_id in pbar:
             # Set the seed for flipping mechanism
             if self.config.seed > 0:
-                hyperparameters["seed"] = trail_id + 1 + int(self.config.seed)
+                hyperparameters["seed"] = start_run_id + trail_id + int(self.config.seed)
+                LOGGER.info(f"Using seed {hyperparameters['seed']} for trail {trail_id + start_run_id}")
             self.kwargs["config"] = self.config
             self.kwargs["ising_model"] = self.ising_model
             self.kwargs["trail_id"] = trail_id
             if len(self.list_of_callables) >= 1:
+                self.kwargs["initialization_seed"] = initialization_seed
+                LOGGER.info(f"Using initialization seed {self.kwargs['initialization_seed']} for trail {start_run_id}")
                 sub_stage = self.list_of_callables[0](self.list_of_callables[1:], **self.kwargs)
                 initial_state, _ = sub_stage.run()
             else:
