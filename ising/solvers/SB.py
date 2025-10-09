@@ -128,7 +128,12 @@ class ballisticSB(SB):
 
             nb_operations = num_iterations * (2 * N**2 + 10 * N + 3)
             if log.filename is not None:
-                log.write_metadata(solution_state=sample, solution_energy=energy, total_operations=nb_operations)
+                log.write_metadata(
+                    solution_state=sample,
+                    solution_energy=energy,
+                    total_operations=nb_operations,
+                    computation_time=end_time - start_time,
+                )
             else:
                 sample = np.sign(x)
                 energy = model.evaluate(sample)
@@ -225,7 +230,12 @@ class discreteSB(SB):
             end_time = time.time()
             nb_operations = num_iterations * (2 * N**2 + 10 * N + 3)
             if log.filename is not None:
-                log.write_metadata(solution_state=sample, solution_energy=energy, total_operations=nb_operations)
+                log.write_metadata(
+                    solution_state=sample,
+                    solution_energy=energy,
+                    total_operations=nb_operations,
+                    computation_time=end_time - start_time,
+                )
             else:
                 sample = np.sign(x)
                 energy = model.evaluate(np.sign(x))
