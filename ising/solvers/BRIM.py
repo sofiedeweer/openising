@@ -8,8 +8,8 @@ from ising.utils.HDF5Logger import HDF5Logger
 from ising.utils.numpy import triu_to_symm
 
 ###
-# This code is adapted from the BRIM paper: https://ieeexplore.ieee.org/document/9407038/,
-# given to me by professor Michael Huang.
+# This code is adapted from the code of the BRIM paper: https://ieeexplore.ieee.org/document/9407038/,
+# given to us by professor Michael Huang.
 ###
 
 
@@ -36,6 +36,8 @@ class BRIM(SolverBase):
     def choose_spinflips(self, voltages: np.ndarray):
         random_v = np.random.uniform(0, 1, (self.num_variables))
         self.chosen_flips = random_v < self.p
+        if self.bias:
+            self.chosen_flips[-1] = False  # Do not flip the bias node
 
         self.flip_voltages = np.where(self.chosen_flips, -np.abs(voltages), 0).astype(np.float32)
 
@@ -47,7 +49,11 @@ class BRIM(SolverBase):
             vt[-1] = 1.0
 
         # ZIV diode
-        z = vt * (vt + 1) * (vt - 1) / self.resistance
+        z = vt / self.resistance + (
+            (-2.156334025305975e-05 * np.power(vt, 5))
+            + (1.017179575405042e-04 * np.power(vt, 3))
+            + (-2.231312342175098e-05 * vt)
+        )
 
         # Compute the differential equation
         if self.do_flipping:
@@ -128,7 +134,6 @@ class BRIM(SolverBase):
         schema = {
             "time_clock": float,
             "energy": np.float32,
-            "state": (np.int8, (model.num_variables,)),
             "voltages": (np.float32, (model.num_variables,)),
         }
 
@@ -167,7 +172,7 @@ class BRIM(SolverBase):
             if log.filename is not None:
                 sample = np.sign(v[: model.num_variables])
                 energy = model.evaluate(sample)
-                log.log(time_clock=0.0, energy=energy, state=sample, voltages=v[: model.num_variables])
+                log.log(time_clock=0.0, energy=energy, voltages=v[: model.num_variables])
 
             while i < (num_iterations) and max_change > stop_criterion:
                 tk = t_eval[i]
@@ -177,12 +182,11 @@ class BRIM(SolverBase):
                 else:
                     Ka = np.float32(1.0)
 
-                # Runge Kutta steps, k1 is the derivative at time step t, k2 is the derivative at time step t+2/3*dt
+                # Forward Euler
                 k1 = dtBRIM * self.dvdt(tk, previous_voltages, J, Ka)
-                k2 = dtBRIM * self.dvdt(tk + self.two_thirds * dtBRIM, previous_voltages + self.two_thirds * k1, J, Ka)
 
                 new_voltages = np.clip(
-                    previous_voltages + self.fourth * (k1 + self.three * k2), np.float32(-1), np.float32(1)
+                    previous_voltages + k1, np.float32(-1), np.float32(1)
                 )
 
                 if self.do_flipping:
@@ -191,7 +195,7 @@ class BRIM(SolverBase):
                 if log.filename is not None:
                     sample = np.sign(new_voltages[: model.num_variables])
                     energy = model.evaluate(sample)
-                    log.log(time_clock=tk, energy=energy, state=sample, voltages=new_voltages[: model.num_variables])
+                    log.log(time_clock=tk, energy=energy, voltages=new_voltages[: model.num_variables])
 
                 # Update criterion changes
                 if i > 0:
@@ -205,7 +209,7 @@ class BRIM(SolverBase):
             if max_change < stop_criterion and log.filename is not None:
                 for j in range(i, num_iterations):
                     tk = t_eval[j]
-                    log.log(time_clock=tk, energy=energy, state=sample, voltages=new_voltages[: model.num_variables])
+                    log.log(time_clock=tk, energy=energy, voltages=new_voltages[: model.num_variables])
             if log.filename is not None:
                 log.write_metadata(solution_state=sample, solution_energy=energy, total_time=t_eval[-1])
             else:
