@@ -41,6 +41,8 @@ def parse_hyperparameters(args: dict) -> dict[str:]:
         hyperparameters["exponent"] = float(args.exponent)
         hyperparameters["pseudo_length"] = None if args.pseudo_length == "None" else int(args.pseudo_length)
         hyperparameters["ode_choice"] = args.ode_choice
+        hyperparameters["accumulation_delay"] = int(args.accumulation_delay)
+        hyperparameters["broadcast_delay"] = int(args.broadcast_delay)
 
     # BRIM parameters
     if "BRIM" in args.solvers:
@@ -52,11 +54,11 @@ def parse_hyperparameters(args: dict) -> dict[str:]:
     # SA-like parameters
     if "SA" in args.solvers or "SCA" in args.solvers or "inSituSA" in args.solvers or "DSA" in args.solvers:
         hyperparameters["initial_temp"] = float(args.T)
-        Tfin = float(args.T_final)
 
     if "SA" in args.solvers or "DSA" in args.solvers:
         hyperparameters["num_iterations_SA"] = int(args.num_iterations_SA)
-        hyperparameters["cooling_rate"] = (
+        Tfin = float(args.T_final)
+        hyperparameters["cooling_rate_SA"] = (
             return_rx(hyperparameters["num_iterations_SA"], hyperparameters["initial_temp"], Tfin)
             if hyperparameters["initial_temp"] != 0
             else 0.0
@@ -67,7 +69,8 @@ def parse_hyperparameters(args: dict) -> dict[str:]:
         hyperparameters["initial_temp_inSituSA"] = float(args.initial_temp_inSituSA)
         hyperparameters["num_iterations_inSituSA"] = int(args.num_iterations_inSituSA)
         hyperparameters["nb_flips"] = float(args.nb_flips)
-        hyperparameters["cooling_rate"] = (
+        Tfin = float(args.T_final_inSituSA)
+        hyperparameters["cooling_rate_inSituSA"] = (
             return_rx(hyperparameters["num_iterations_inSituSA"], hyperparameters["initial_temp_inSituSA"], Tfin)
             if hyperparameters["initial_temp_inSituSA"] != 0
             else 0.0
@@ -82,7 +85,8 @@ def parse_hyperparameters(args: dict) -> dict[str:]:
             if hyperparameters["q"] != 0
             else 0.0
         )
-        hyperparameters["cooling_rate"] = (
+        Tfin = float(args.T_final_SCA)
+        hyperparameters["cooling_rate_SCA"] = (
             return_rx(hyperparameters["num_iterations_SCA"], hyperparameters["initial_temp"], Tfin)
             if hyperparameters["initial_temp"] != 0
             else 0.0

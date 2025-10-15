@@ -20,7 +20,7 @@ class InSituSASolver(SolverBase):
         initial_state: np.ndarray,
         num_iterations: int,
         initial_temp_inSituSA: float,
-        cooling_rate: float,
+        cooling_rate_inSituSA: float,
         nb_flips: float,
         seed: int | None = None,
         file: pathlib.Path | None = None,
@@ -64,7 +64,7 @@ class InSituSASolver(SolverBase):
                     problem_size=model.num_variables,
                     num_iterations=num_iterations,
                     initial_temp=initial_temp_inSituSA,
-                    cooling_rate=cooling_rate,
+                    cooling_rate=cooling_rate_inSituSA,
                     nb_flips=nb_flips,
                     seed=seed,
                 )
@@ -105,7 +105,7 @@ class InSituSASolver(SolverBase):
                 if logger.filename is not None:
                     logger.log(energy=model.evaluate(state), state=state)
                 # Decrease the temperature
-                Temp *= cooling_rate
+                Temp *= cooling_rate_inSituSA
 
             end_time = time.time()
             nb_operations = num_iterations * (

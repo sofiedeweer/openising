@@ -39,11 +39,13 @@ seed: 100
 
 # Parameters for SCA
 num_iterations_SCA: 1
+T_final_SCA: 0.5
 q: 0.0
 q_final: 10.0
 
 # Parameters for in-Situ SA
 initial_temp_inSituSA: 690
+T_final_inSituSA: 0.5
 num_iterations_inSituSA: 1
 nb_flips: 0.5
 
@@ -59,6 +61,8 @@ cluster_choice: "random"
 pseudo_length: None
 capacitance: 1
 resistance: 1
+accumulation_delay: 0
+broadcast_delay: 0
 ode_choice: "FE"
 
 # Parameters for BRIM

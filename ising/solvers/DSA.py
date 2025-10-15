@@ -20,7 +20,7 @@ class DSASolver(SolverBase):
         initial_state: np.ndarray,
         num_iterations: int,
         initial_temp: float,
-        cooling_rate: float,
+        cooling_rate_SA: float,
         seed: int | None = None,
         file: pathlib.Path | None = None,
     ) -> tuple[np.ndarray, float]:
@@ -68,7 +68,7 @@ class DSASolver(SolverBase):
                     model=model,
                     num_iterations=num_iterations,
                     initial_temp=initial_temp,
-                    cooling_rate=cooling_rate,
+                    cooling_rate=cooling_rate_SA,
                     seed=seed,
                 )
 
@@ -104,7 +104,7 @@ class DSASolver(SolverBase):
                         state[node] = -state[node]  # Revert the flip if the new state is rejected
 
                 # Decrease the temperature
-                T = cooling_rate * T
+                T = cooling_rate_SA * T
 
                 # log information
                 if logger.filename is not None:

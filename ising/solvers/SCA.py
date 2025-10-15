@@ -24,7 +24,7 @@ class SCA(SolverBase):
         initial_state: np.ndarray,
         num_iterations: int,
         initial_temp: float,
-        cooling_rate: float,
+        cooling_rate_SCA: float,
         q: float,
         r_q: float,
         seed: int | None = None,
@@ -74,7 +74,7 @@ class SCA(SolverBase):
                     model=model,
                     num_iterations=num_iterations,
                     initial_temp=initial_temp,
-                    cooling_rate=cooling_rate,
+                    cooling_rate=cooling_rate_SCA,
                     initial_penalty=q,
                     penalty_increase=r_q,
                     seed=seed,
@@ -97,7 +97,7 @@ class SCA(SolverBase):
                     energy = model.evaluate(state.astype(np.float32))
                     log.log(energy=energy, state=state)
 
-                T = self.change_hyperparam(T, cooling_rate)
+                T = self.change_hyperparam(T, cooling_rate_SCA)
                 q = self.change_hyperparam(q, r_q)
                 flipped_states = []
             end_time = time.time()

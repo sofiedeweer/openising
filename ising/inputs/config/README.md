@@ -77,6 +77,10 @@ The config file is written in YAML. It must has the following parameters:
 
 *capacitance:* [float] the capacitance.
 
+*accumulation_delay:* [int] The amount of accumulation delay present. The value represent the amount of previous time steps there are present.
+
+*broadcast_delay:* [int] The same as accumulation delay, but now in the boradcast dimension.
+
 *ode_choice:* [str] which ODE solver to perform the simulation with. Currently RK (Runge-Kutta 4) and FE (Forward Euler) are implemented.
 
 **Parameters for BRIM solver**
