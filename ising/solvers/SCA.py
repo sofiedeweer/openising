@@ -64,7 +64,7 @@ class SCA(SolverBase):
             seed = int(time.time() * 1000)
         random.seed(seed)
 
-        schema = {"energy": np.float32, "state": (np.int8, (N,))}
+        schema = {"time": np.float32, "energy": np.float32, "state": (np.int8, (N,))}
 
         with HDF5Logger(file, schema) as log:
             if log.filename is not None:
@@ -82,29 +82,33 @@ class SCA(SolverBase):
 
             start_time = time.time()
             T = initial_temp
+            if log.filename is not None:
+                energy = model.evaluate(state.astype(np.float32))
+                log.log(time=0.0, energy=energy, state=state)
             for _ in range(num_iterations):
-                hs = np.matmul(J, state) + model.h
+                hs = np.matmul(J, state) + model.h # 2*N**2 + N
 
-                Prob = self.get_prob(hs, state, q, T)
-                rand = np.random.uniform(0, 1, size=(N,))
+                Prob = self.get_prob(hs, state, q, T) # 2*N + 3*N
+                rand = np.random.uniform(0, 1, size=(N,)) # N
 
-                flipped_states = [y for y in range(N) if Prob[y] < rand[y]]
+                flipped_states = [y for y in range(N) if Prob[y] < rand[y]] # N
 
-                tau[flipped_states] = -state[flipped_states]
+                tau[flipped_states] = -state[flipped_states] # N/4
                 state = np.copy(tau)
 
-                if log.filename is not None:
-                    energy = model.evaluate(state.astype(np.float32))
-                    log.log(energy=energy, state=state)
-
-                T = self.change_hyperparam(T, cooling_rate_SCA)
-                q = self.change_hyperparam(q, r_q)
+                T = self.change_hyperparam(T, cooling_rate_SCA) # 1
+                q = self.change_hyperparam(q, r_q) # 1
                 flipped_states = []
-            end_time = time.time()
+
+                if log.filename is not None:
+                    elapsed_time = time.time() - start_time
+                    energy = model.evaluate(state.astype(np.float32))
+                    log.log(time=elapsed_time, energy=energy, state=state)
 
             nb_operations = num_iterations * (2 * N**2 + 8 * N + N / 2 + 2)
             if log.filename is not None:
                 log.write_metadata(
+                    total_time=elapsed_time,
                     solution_state=state,
                     solution_energy=energy,
                     total_operations=nb_operations,
@@ -112,7 +116,7 @@ class SCA(SolverBase):
             else:
                 energy = model.evaluate(state.astype(np.float32))
 
-        return state, energy, end_time - start_time, nb_operations
+        return state, energy, elapsed_time, nb_operations
 
     def get_prob(self, hs: np.ndarray, sample: np.ndarray, q: float, T: float) -> np.ndarray:
         """Calculates the probability of changing the value of the spins

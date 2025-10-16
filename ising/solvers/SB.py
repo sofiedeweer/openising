@@ -87,8 +87,8 @@ class ballisticSB(SB):
         y = np.random.uniform(-0.1, 0.1, (model.num_variables,)).astype(np.float32)
 
         schema = {
+            "time": np.float32,
             "energy": float,
-            "state": (np.int8, (N,)),
             "positions": (np.float32, (N,)),
         }
 
@@ -103,41 +103,42 @@ class ballisticSB(SB):
                     a0=a0,
                     c0=c0,
                 )
-            start_time = time.time()
 
             tk = 0.0
             if log.filename is not None:
                 sample = np.sign(x)
                 energy = model.evaluate(sample)
-                log.log(energy=energy, state=sample, positions=x)
+                log.log(time=0.0, energy=energy, positions=x)
+            start_time = time.time()
             for _ in range(num_iterations):
-                atk = self.at(tk, a0, dtSB, num_iterations)
+                atk = self.at(tk, a0, dtSB, num_iterations) # 4
 
                 y += (-(a0 - atk) * x + c0 * np.matmul(J, x) + c0 * h) * dtSB
-                x += self.update_x(y, dtSB, a0)
+                # 1 + N + 2*N**2 + N + N + 2*N + N= 2*N**2 + 6*N + 1
+                x += self.update_x(y, dtSB, a0) # N+1
 
-                y = np.where(np.abs(x) >= 1, 0, y)
-                x = np.where(np.abs(x) >= 1, np.sign(x), x)
+                y = np.where(np.abs(x) >= 1, 0, y) # N
+                x = np.where(np.abs(x) >= 1, np.sign(x), x) # N
 
-                tk += dtSB
+                tk += dtSB # 1
                 if log.filename is not None:
                     sample = np.sign(x)
                     energy = model.evaluate(sample)
-                    log.log(energy=energy, state=sample, positions=x)
-            end_time = time.time()
+                    elapsed_time = time.time() - start_time
+                    log.log(time=elapsed_time, energy=energy, positions=x)
 
-            nb_operations = num_iterations * (2 * N**2 + 10 * N + 3)
+            nb_operations = num_iterations * (2 * N**2 + 9 * N + 6)
             if log.filename is not None:
                 log.write_metadata(
                     solution_state=sample,
                     solution_energy=energy,
                     total_operations=nb_operations,
-                    computation_time=end_time - start_time,
+                    total_time=elapsed_time,
                 )
             else:
                 sample = np.sign(x)
                 energy = model.evaluate(sample)
-        return sample, energy, end_time - start_time, nb_operations
+        return sample, energy, elapsed_time, nb_operations
 
 
 class discreteSB(SB):
@@ -191,8 +192,8 @@ class discreteSB(SB):
         y = np.random.uniform(-0.1, 0.1, (model.num_variables,)).astype(np.float32)
 
         schema = {
+            "time": np.float32,
             "energy": np.float32,
-            "state": (np.int8, (N,)),
             "positions": (np.float32, (N,)),
         }
 
@@ -209,34 +210,35 @@ class discreteSB(SB):
                 )
                 sample = np.sign(x)
                 energy = model.evaluate(sample)
-                log.log(energy=energy, state=sample, positions=x)
+                log.log(time=0.0, energy=energy, positions=x)
             start_time = time.time()
             for i in range(num_iterations):
-                atk = self.at(tk, a0, dtSB, num_iterations)
+                atk = self.at(tk, a0, dtSB, num_iterations) # 3
 
                 y += (-(a0 - atk) * x + c0 * np.matmul(J, np.sign(x)) + c0 * h) * dtSB
-                x += self.update_x(y, dtSB, a0)
+                # 1+N + 2*N**2 + N + N + 2*N + N = 2*N**2 + 6*N + 1
+                x += self.update_x(y, dtSB, a0) # N+1
 
-                for j in range(N):
+                for j in range(N): # N
                     if np.abs(x[j]) > 1:
                         self.update_rule(x, y, j)
 
+                tk += dtSB # 1
                 if log.filename is not None:
+                    elapsed_time = time.time() - start_time
                     sample = np.sign(x)
                     energy = model.evaluate(sample)
-                    log.log(energy=energy, state=sample, positions=x)
+                    log.log(time=elapsed_time, energy=energy, positions=x)
 
-                tk += dtSB
-            end_time = time.time()
-            nb_operations = num_iterations * (2 * N**2 + 10 * N + 3)
+            nb_operations = num_iterations * (2 * N**2 + 9 * N + 5)
             if log.filename is not None:
                 log.write_metadata(
                     solution_state=sample,
                     solution_energy=energy,
                     total_operations=nb_operations,
-                    computation_time=end_time - start_time,
+                    total_time=elapsed_time,
                 )
             else:
                 sample = np.sign(x)
                 energy = model.evaluate(np.sign(x))
-        return sample, energy, end_time - start_time, nb_operations
+        return sample, energy, elapsed_time, nb_operations

@@ -16,8 +16,9 @@ from ising.utils.numpy import triu_to_symm
 class BRIM(SolverBase):
     def __init__(self):
         self.name = "BRIM"
-        self.p = 0.02
-        self.end_prob = 1e-6
+        self.p = 0.001799
+        self.end_prob = 2e-06
+        self.sh_it_frac = 2e-04
         self.fourth = np.float32(1 / 4)
         self.three = np.float32(3)
         self.two_thirds = np.float32(2 / 3)
@@ -34,12 +35,25 @@ class BRIM(SolverBase):
         return np.float32(1 - np.exp(-time / end_time))
 
     def choose_spinflips(self, voltages: np.ndarray):
+        # Increment count
+        self.flip_counts = np.where(self.flip_counts != -1, self.flip_counts + 1, -1)
+
+        # Choose which spins to flip
         random_v = np.random.uniform(0, 1, (self.num_variables))
         self.chosen_flips = random_v < self.p
         if self.bias:
             self.chosen_flips[-1] = False  # Do not flip the bias node
-
         self.flip_voltages = np.where(self.chosen_flips, -np.abs(voltages), 0).astype(np.float32)
+
+        # Reset counter for chosen flips
+        self.flip_counts = np.where(self.chosen_flips, 0, self.flip_counts)
+
+        # Unclamp nodes with spin flip timeout
+        time_up = (self.flip_counts == self.flip_iters)
+        self.flip_voltages = np.where(time_up, 0, self.flip_voltages)
+        self.chosen_flips = np.where(time_up, False, self.chosen_flips)
+        self.flip_counts = np.where(time_up, -1, self.flip_counts)
+
 
         self.p += self.prob_change
 
@@ -132,9 +146,8 @@ class BRIM(SolverBase):
         v = v.astype(np.float32)
         # Schema for the logging
         schema = {
-            "time_clock": float,
+            "time": float,
             "energy": np.float32,
-            "voltages": (np.float32, (model.num_variables,)),
         }
 
         # Set up the flipping probability
@@ -145,8 +158,10 @@ class BRIM(SolverBase):
         self.capacitance = np.float32(capacitance)
         self.resistance = np.float32(resistance)
         self.do_flipping = do_flipping
+        self.flip_iters = num_iterations * self.sh_it_frac
         self.chosen_flips = np.zeros(self.num_variables, dtype=bool)
         self.flip_voltages = np.zeros(self.num_variables, dtype=np.float32)
+        self.flip_counts = -np.ones(self.num_variables, dtype=np.int32)
 
         with HDF5Logger(file, schema) as log:
             # Log the initial metadata
@@ -172,7 +187,7 @@ class BRIM(SolverBase):
             if log.filename is not None:
                 sample = np.sign(v[: model.num_variables])
                 energy = model.evaluate(sample)
-                log.log(time_clock=0.0, energy=energy, voltages=v[: model.num_variables])
+                log.log(time=0.0, energy=energy)
 
             while i < (num_iterations) and max_change > stop_criterion:
                 tk = t_eval[i]
@@ -195,7 +210,7 @@ class BRIM(SolverBase):
                 if log.filename is not None:
                     sample = np.sign(new_voltages[: model.num_variables])
                     energy = model.evaluate(sample)
-                    log.log(time_clock=tk, energy=energy, voltages=new_voltages[: model.num_variables])
+                    log.log(time=tk, energy=energy)
 
                 # Update criterion changes
                 if i > 0:
@@ -209,7 +224,7 @@ class BRIM(SolverBase):
             if max_change < stop_criterion and log.filename is not None:
                 for j in range(i, num_iterations):
                     tk = t_eval[j]
-                    log.log(time_clock=tk, energy=energy, voltages=new_voltages[: model.num_variables])
+                    log.log(time=tk, energy=energy)
             if log.filename is not None:
                 log.write_metadata(solution_state=sample, solution_energy=energy, total_time=t_eval[-1])
             else:

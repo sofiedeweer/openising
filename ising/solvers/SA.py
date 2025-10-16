@@ -46,6 +46,7 @@ class SASolver(SolverBase):
 
         # Set up schema and metadata for logging
         schema = {
+            "time": np.float32,  # Scalar float
             "energy": np.float32,  # Scalar float
             "state": (np.int8, (model.num_variables,)),  # Vector of int8 (to hold -1 and 1)
             "change_state": np.bool_,  # Scalar boolean
@@ -70,43 +71,47 @@ class SASolver(SolverBase):
             T = initial_temp
             state = np.sign(initial_state).astype(np.float32)
             energy = model.evaluate(state)
+            if logger.filename is not None:
+                logger.log(time=0.0, energy=energy, state=state, change_state=False)
             for _ in range(num_iterations):
                 # Select a random node to flip
-                node = random.randrange(0, model.num_variables)
+                node = random.randrange(0, model.num_variables)  # 1
 
                 # Obtain new state by flipping that node
-                state[node] = -state[node]
+                state[node] = -state[node]  # 1
 
                 # Evaluate the new energy
-                energy_new = model.evaluate(state)
+                energy_new = model.evaluate(state)  # 2N**2+4*N
 
-                delta = energy_new - energy
+                delta = energy_new - energy  # 1
 
                 # Determine whether to accept the new state (Metropolis)
-                change_state = delta < 0 or random.random() < np.exp(-delta / T)
-
-                # Log current iteration data
-                if logger.filename is not None:
-                    logger.log(energy=energy_new, state=state, change_state=change_state)
+                change_state = delta < 0 or random.random() < np.exp(-delta / T)  # 5
 
                 # Update the state and energy if the new state is accepted
-                if change_state:
+                if change_state:  # 2
                     energy = energy_new
                 else:
                     state[node] = -state[node]  # Revert the flip if the new state is rejected
 
                 # Decrease the temperature
-                T = cooling_rate_SA * T
+                T = cooling_rate_SA * T  # 1
 
-            end_time = time.time()
+                # Log current iteration data
+                if logger.filename is not None:
+                    time_elapsed = time.time() - start_time
+                    logger.log(time=time_elapsed, energy=energy_new, state=state, change_state=change_state)
+
             # Log the final result
             if logger.filename is not None:
-                logger.log(energy=energy_new, state=state, change_state=change_state)
+                logger.log(time=time_elapsed, energy=energy_new, state=state, change_state=change_state)
             nb_operations = (
-                num_iterations * (3 * model.num_variables**2 + 2 * model.num_variables + 8)
-                + 3 * model.num_variables**2
-                + 2 * model.num_variables
+                num_iterations * (2 * model.num_variables**2 + 4 * model.num_variables + 8)
+                + 2 * model.num_variables**2
+                + 4 * model.num_variables
             )
-            logger.write_metadata(solution_state=state, solution_energy=energy, total_operations=nb_operations)
+            logger.write_metadata(
+                total_time=time_elapsed, solution_state=state, solution_energy=energy, total_operations=nb_operations
+            )
 
-        return state, energy, end_time - start_time, nb_operations
+        return state, energy, time_elapsed, nb_operations
