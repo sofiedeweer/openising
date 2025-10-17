@@ -52,7 +52,7 @@ def parse_hyperparameters(args: dict) -> dict[str:]:
         hyperparameters["coupling_annealing"] = bool(args.coupling_annealing)
 
     # SA-like parameters
-    if "SA" in args.solvers or "SCA" in args.solvers or "inSituSA" in args.solvers or "DSA" in args.solvers:
+    if "SA" in args.solvers or "SCA" in args.solvers or "DSA" in args.solvers:
         hyperparameters["initial_temp"] = float(args.T)
 
     if "SA" in args.solvers or "DSA" in args.solvers:
@@ -61,7 +61,7 @@ def parse_hyperparameters(args: dict) -> dict[str:]:
         hyperparameters["cooling_rate_SA"] = (
             return_rx(hyperparameters["num_iterations_SA"], hyperparameters["initial_temp"], Tfin)
             if hyperparameters["initial_temp"] != 0
-            else 0.0
+            else 1.0
         )
 
     # in-Situ SA parameters
@@ -73,7 +73,7 @@ def parse_hyperparameters(args: dict) -> dict[str:]:
         hyperparameters["cooling_rate_inSituSA"] = (
             return_rx(hyperparameters["num_iterations_inSituSA"], hyperparameters["initial_temp_inSituSA"], Tfin)
             if hyperparameters["initial_temp_inSituSA"] != 0
-            else 0.0
+            else 1.0
         )
 
     # SCA parameters
@@ -83,13 +83,13 @@ def parse_hyperparameters(args: dict) -> dict[str:]:
         hyperparameters["r_q"] = (
             return_rx(hyperparameters["num_iterations_SCA"], hyperparameters["q"], float(args.q_final))
             if hyperparameters["q"] != 0
-            else 0.0
+            else 1.0
         )
         Tfin = float(args.T_final_SCA)
         hyperparameters["cooling_rate_SCA"] = (
             return_rx(hyperparameters["num_iterations_SCA"], hyperparameters["initial_temp"], Tfin)
             if hyperparameters["initial_temp"] != 0
-            else 0.0
+            else 1.0
         )
 
     # SB parameters
