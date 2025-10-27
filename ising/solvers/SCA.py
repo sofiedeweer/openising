@@ -49,10 +49,9 @@ class SCA(SolverBase):
         Returns:
             sample, energy (tuple[np.ndarray, float]): final state and energy of the optimisation process.
         """
-        if q== 0.0:
+        if q== -1.0:
             q= return_q(model)
             r_q = 1.0
-
 
         N = model.num_variables
         hs = np.zeros((N,))
@@ -114,6 +113,7 @@ class SCA(SolverBase):
                     total_operations=nb_operations,
                 )
             else:
+                elapsed_time = time.time() - start_time
                 energy = model.evaluate(state.astype(np.float32))
 
         return state, energy, elapsed_time, nb_operations

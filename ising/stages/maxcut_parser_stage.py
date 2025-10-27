@@ -22,10 +22,25 @@ class MaxcutParserStage(Stage):
         """! Parse the Maxcut benchmark workload."""
 
         if self.config.dummy_creator:
-            dummy_dict = self.kwargs.get("dummy_dict", {})
-            graph = dummy_dict.get("graph", None)
-            best_found = dummy_dict.get("best_found", None)
-            ising_model = dummy_dict.get("ising_model", None)
+            if self.config.dummy_quadratic:
+                LOGGER.debug("Generating a dummy problem with only 1 minimum.")
+                v = np.array([2**i for i in range(4)])
+                vvT = np.outer(v, v)
+                Q = np.zeros((self.config.dummy_size, self.config.dummy_size))
+                for block in range(0, self.config.dummy_size, 4):
+                    if block + 4 <= self.config.dummy_size:
+                        Q[block:block+4, block:block+4] = vvT
+                    else:
+                        Q[block:, block:] = vvT[:self.config.dummy_size - block, :self.config.dummy_size - block]
+                Q = np.triu(Q)
+                ising_model = IsingModel.from_qubo(Q)
+                best_found = 0.0
+                graph = nx.Graph()
+            else:
+                dummy_dict = self.kwargs.get("dummy_dict", {})
+                graph = dummy_dict.get("graph", None)
+                best_found = dummy_dict.get("best_found", None)
+                ising_model = dummy_dict.get("ising_model", None)
         else:
             LOGGER.debug(f"Parsing Maxcut benchmark: {self.benchmark_filename}")
             graph: nx.Graph

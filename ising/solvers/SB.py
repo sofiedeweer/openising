@@ -138,6 +138,7 @@ class ballisticSB(SB):
             else:
                 sample = np.sign(x)
                 energy = model.evaluate(sample)
+                elapsed_time = time.time() - start_time
         return sample, energy, elapsed_time, nb_operations
 
 
@@ -239,6 +240,7 @@ class discreteSB(SB):
                     total_time=elapsed_time,
                 )
             else:
+                elapsed_time = time.time() - start_time
                 sample = np.sign(x)
                 energy = model.evaluate(np.sign(x))
         return sample, energy, elapsed_time, nb_operations
