@@ -127,6 +127,7 @@ dummy_case_num: 10
 
 # Parameters for dummy MaxCut
 dummy_quadratic: False
+dummy_local_optima: False
 
 # Parameters for dummy MaxCut/TSP/ATSP/Knapsack
 dummy_size: 20

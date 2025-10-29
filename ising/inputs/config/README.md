@@ -178,6 +178,8 @@ Besides, the following parameters will be added within returned ans:
 
 *dummy_quadratic:* [bool] whether to generate a problem with only 1 global optimum.
 
+*dummy_local_optima:* [bool] whether there are local optima in the dummy problem.
+
 **If dummy MaxCut/TSP/ATSP is to be generated, these parameters are required:**
 
 *dummy_size*: [int] the amount of nodes (cities in TSP/ATSP).

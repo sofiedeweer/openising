@@ -6,14 +6,11 @@ import pathlib
 from ising.stages.stage import Stage, StageCallable
 from ising.stages.model.ising import IsingModel
 
+
 class MaxcutParserStage(Stage):
     """! Stage to parse the Maxcut benchmark workload."""
 
-    def __init__(self,
-                 list_of_callables: list[StageCallable],
-                 *,
-                 config: Any,
-                 **kwargs: Any):
+    def __init__(self, list_of_callables: list[StageCallable], *, config: Any, **kwargs: Any):
         super().__init__(list_of_callables, **kwargs)
         self.config = config
         self.benchmark_filename = TOP / config.benchmark
@@ -24,17 +21,34 @@ class MaxcutParserStage(Stage):
         if self.config.dummy_creator:
             if self.config.dummy_quadratic:
                 LOGGER.debug("Generating a dummy problem with only 1 minimum.")
-                v = np.array([2**i for i in range(4)])
+                v = np.array([2**i for i in range(3, -1, -1)])
                 vvT = np.outer(v, v)
                 Q = np.zeros((self.config.dummy_size, self.config.dummy_size))
                 for block in range(0, self.config.dummy_size, 4):
                     if block + 4 <= self.config.dummy_size:
-                        Q[block:block+4, block:block+4] = vvT
+                        Q[block : block + 4, block : block + 4] = vvT
                     else:
-                        Q[block:, block:] = vvT[:self.config.dummy_size - block, :self.config.dummy_size - block]
-                Q = np.triu(Q)
-                ising_model = IsingModel.from_qubo(Q)
+                        Q[block:, block:] = vvT[: self.config.dummy_size - block, : self.config.dummy_size - block]
+                coupling = -np.triu(Q, k=1) / 2
+                bias = -1 / 2 * np.ones((self.config.dummy_size, 1)).T @ Q
+                constant = np.sum(np.diag(Q)) / 4 + np.sum(Q) / 4
+                ising_model = IsingModel(coupling, bias.flatten(), constant, name="Dummy_Quadratic")
                 best_found = 0.0
+                graph = nx.Graph()
+            elif self.config.dummy_local_optima:
+                LOGGER.debug("Generating a dummy problem with local optima.")
+                Qhat = np.array(
+                    [[-2312, 14464, 7616, 3856], [0, -3236, 4576, 2312], [0, 0, -2714, 1204], [0, 0, 0, -1661]]
+                )
+                constant = 0
+                Q = np.zeros((self.config.dummy_size, self.config.dummy_size))
+                for block in range(0, self.config.dummy_size, 4):
+                    if block + 4 <= self.config.dummy_size:
+                        constant += 1886
+                        Q[block : block + 4, block : block + 4] = Qhat
+                ising_model = IsingModel.from_qubo(Q)
+                ising_model.c += constant
+                best_found = -1350 * (self.config.dummy_size // 4)
                 graph = nx.Graph()
             else:
                 dummy_dict = self.kwargs.get("dummy_dict", {})
@@ -64,7 +78,7 @@ class MaxcutParserStage(Stage):
         @return model (IsingModel): generated model from the graph
         """
         N = len(graph.nodes)
-        coupling = -nx.adjacency_matrix(graph, weight='weight').toarray()/2
+        coupling = -nx.adjacency_matrix(graph, weight="weight").toarray() / 2
         coupling = np.triu(coupling)
         h = np.zeros((N,))
         c = np.sum(coupling)
