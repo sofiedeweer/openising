@@ -58,9 +58,8 @@ init_cluster_size: 0.8
 end_cluster_size: 0.0625
 exponent: 3.0
 cluster_choice: "random"
-pseudo_length: None
+current: 1.0
 capacitance: 1
-resistance: 1
 accumulation_delay: 0
 broadcast_delay: 0
 ode_choice: "FE"
@@ -69,6 +68,7 @@ ode_choice: "FE"
 num_iterations_BRIM: 1
 dtBRIM: 1e-6  # 10us
 stop_criterion: 1e-6  # 1uV
+resistance: 1
 do_flipping: True
 coupling_annealing: True
 

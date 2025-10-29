@@ -204,15 +204,14 @@ class SimulationStage(Stage):
                 [
                     "dtMult",
                     "seed",
+                    "current"
                     "capacitance",
-                    "resistance",
                     "nb_flipping",
                     "cluster_threshold",
                     "init_cluster_size",
                     "end_cluster_size",
                     "exponent",
                     "cluster_choice",
-                    "pseudo_length",
                     "ode_choice",
                     "stop_criterion",
                     "accumulation_delay",

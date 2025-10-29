@@ -71,9 +71,7 @@ The config file is written in YAML. It must has the following parameters:
 
 *exponent:* [float] the exponent by which the exponential function of cluster size changes.
 
-*pseudo_length:* [int] the sequence length of the pseudo-random LFSR generator. Currently able to support lengths of 2^i - 1, i = [1, 12] and None. When None the generator is fully random and not pseudo-random.
-
-*resistance:* [float] the resistance used in Multiplicative solver. Default value is 1.
+*current:* [float] the amount of unit current flows through the cells.
 
 *capacitance:* [float] the capacitance.
 
@@ -92,6 +90,10 @@ The config file is written in YAML. It must has the following parameters:
 *coupling_annealing:* [bool] Whether to slowly anneal the coupling values.
 
 *do_flipping:* [bool] Whether to perform the flipping.
+
+*resistance:* [float] the resistance used in Multiplicative solver. Default value is 1.
+
+*capacitance:* [float] the capacitance.
 
 **Parameters for SB (bSB/dSB) solver**
 

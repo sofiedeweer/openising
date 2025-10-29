@@ -26,7 +26,6 @@ def parse_hyperparameters(args: dict) -> dict[str:]:
 
     if "Multiplicative" in args.solvers or "BRIM" in args.solvers:
         hyperparameters["capacitance"] = float(args.capacitance)
-        hyperparameters["resistance"] = float(args.resistance)
         hyperparameters["stop_criterion"] = float(args.stop_criterion)
 
     # Multiplicative parameters
@@ -39,13 +38,14 @@ def parse_hyperparameters(args: dict) -> dict[str:]:
         hyperparameters["end_cluster_size"] = float(args.end_cluster_size)
         hyperparameters["cluster_choice"] = args.cluster_choice
         hyperparameters["exponent"] = float(args.exponent)
-        hyperparameters["pseudo_length"] = None if args.pseudo_length == "None" else int(args.pseudo_length)
         hyperparameters["ode_choice"] = args.ode_choice
         hyperparameters["accumulation_delay"] = int(args.accumulation_delay)
         hyperparameters["broadcast_delay"] = int(args.broadcast_delay)
+        hyperparameters["current"] = float(args.current)
 
     # BRIM parameters
     if "BRIM" in args.solvers:
+        hyperparameters["resistance"] = float(args.resistance)
         hyperparameters["num_iterations_BRIM"] = int(args.num_iterations_BRIM)
         hyperparameters["dtBRIM"] = float(args.dtBRIM)
         hyperparameters["do_flipping"] = bool(args.do_flipping)
