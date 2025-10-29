@@ -40,6 +40,8 @@ class InSituSASolver(SolverBase):
         @return state: The final state of the system.
         @return energy: optimal energy the solver reaches.
         """
+        if nb_flips == -1:
+            nb_flips = 2/model.num_variables
 
         # seed the random number generator. Use a timestamp-based seed if non is provided.
         if seed is None:

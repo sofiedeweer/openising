@@ -220,9 +220,8 @@ class discreteSB(SB):
                 # 1+N + 2*N**2 + N + N + 2*N + N = 2*N**2 + 6*N + 1
                 x += self.update_x(y, dtSB, a0) # N+1
 
-                for j in range(N): # N
-                    if np.abs(x[j]) > 1:
-                        self.update_rule(x, y, j)
+                y = np.where(np.abs(x) >= 1, 0, y) # N
+                x = np.where(np.abs(x) >= 1, np.sign(x), x) # N
 
                 tk += dtSB # 1
                 if log.filename is not None:

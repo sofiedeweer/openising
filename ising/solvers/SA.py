@@ -105,6 +105,8 @@ class SASolver(SolverBase):
             # Log the final result
             if logger.filename is not None:
                 logger.log(time=time_elapsed, energy=energy_new, state=state, change_state=change_state)
+            else:
+                time_elapsed = time.time() - start_time
             nb_operations = (
                 num_iterations * (2 * model.num_variables**2 + 4 * model.num_variables + 8)
                 + 2 * model.num_variables**2
