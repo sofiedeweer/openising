@@ -176,7 +176,7 @@ class IsingModel:
             IsingModel: the new Ising Model.
         """
         new_h = np.reshape(self.h, (-1, 1))
-        new_J = np.block([[self.J, new_h],[np.zeros_like(new_h.T), 0]])
+        new_J = np.block([[self.J, new_h],[np.zeros(np.shape(new_h.T)), 0]])
         return IsingModel(new_J, np.zeros(self.num_variables + 1), c=self.c)
 
     def evaluate(self, sample: np.ndarray) -> float:
@@ -204,10 +204,11 @@ class IsingModel:
         Returns:
             IsingModel: The corresponding IsingModel instance.
         """
-        if not isinstance(Q, np.ndarray) or not npu.is_square(Q) or not npu.is_triu(Q):
-            raise ValueError("Q must be a square upper triangular matrix")
-        J = -(1 / 4) * np.triu(Q, k=1).copy()
-        h = -1/4*(np.ones((1,Q.shape[0] ))@(Q + Q.T)).flatten()
+        if not isinstance(Q, np.ndarray) or not npu.is_square(Q) or not np.linalg.norm(Q - Q.T) < 1e-8:
+            raise ValueError("Q must be a square symmetric matrix")
+        J = -(1 / 2) * Q
+        J = np.triu(J, k=1)
+        h = -1/2*(np.ones((1,Q.shape[0] ))@Q).flatten()
         c = (1 / 4) * np.sum(Q) + (1 / 4) * np.sum(Q.diagonal())
         return cls(J, h, c)
 
