@@ -79,6 +79,8 @@ The config file is written in YAML. It must has the following parameters:
 
 *broadcast_delay:* [int] The same as accumulation delay, but now in the boradcast dimension.
 
+*sigma:* [float] the amount of standard deviation present in the mismatch of the coupling unit. When -1 this is disabled in the simulation. 
+
 *ode_choice:* [str] which ODE solver to perform the simulation with. Currently RK (Runge-Kutta 4) and FE (Forward Euler) are implemented.
 
 **Parameters for BRIM solver**

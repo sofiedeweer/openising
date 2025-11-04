@@ -62,6 +62,7 @@ current: 1.0
 capacitance: 1
 accumulation_delay: 0
 broadcast_delay: 0
+sigma: -1.0
 ode_choice: "FE"
 
 # Parameters for BRIM

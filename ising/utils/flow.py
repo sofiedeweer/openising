@@ -42,6 +42,7 @@ def parse_hyperparameters(args: dict) -> dict[str:]:
         hyperparameters["accumulation_delay"] = int(args.accumulation_delay)
         hyperparameters["broadcast_delay"] = int(args.broadcast_delay)
         hyperparameters["current"] = float(args.current)
+        hyperparameters["sigma"] = float(args.sigma)
 
     # BRIM parameters
     if "BRIM" in args.solvers:

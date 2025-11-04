@@ -204,7 +204,7 @@ class SimulationStage(Stage):
                 [
                     "dtMult",
                     "seed",
-                    "current"
+                    "current",
                     "capacitance",
                     "nb_flipping",
                     "cluster_threshold",
@@ -216,6 +216,7 @@ class SimulationStage(Stage):
                     "stop_criterion",
                     "accumulation_delay",
                     "broadcast_delay",
+                    "sigma",
                 ],
             ),
             "inSituSA": (
