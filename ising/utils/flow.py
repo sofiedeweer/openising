@@ -39,8 +39,8 @@ def parse_hyperparameters(args: dict) -> dict[str:]:
         hyperparameters["cluster_choice"] = args.cluster_choice
         hyperparameters["exponent"] = float(args.exponent)
         hyperparameters["ode_choice"] = args.ode_choice
-        hyperparameters["accumulation_delay"] = int(args.accumulation_delay)
-        hyperparameters["broadcast_delay"] = int(args.broadcast_delay)
+        hyperparameters["accumulation_delay"] = float(args.accumulation_delay)
+        hyperparameters["broadcast_delay"] = float(args.broadcast_delay)
         hyperparameters["current"] = float(args.current)
         hyperparameters["sigma"] = float(args.sigma)
 

@@ -60,8 +60,8 @@ exponent: 3.0
 cluster_choice: "random"
 current: 1.0
 capacitance: 1
-accumulation_delay: 0
-broadcast_delay: 0
+accumulation_delay: 0.
+broadcast_delay: 0.
 sigma: -1.0
 ode_choice: "FE"
 
