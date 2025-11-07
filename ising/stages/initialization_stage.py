@@ -24,9 +24,14 @@ class InitializationStage(Stage):
 
         LOGGER.debug(f"Initialization stage for trail {self.trail_id}.")
         initialization_seed = self.config.initialization_seed
-        if initialization_seed is not None:
+        if initialization_seed is not None and not self.config.eigenvalue_start:
             np.random.seed(initialization_seed + self.trail_id)
             LOGGER.debug(f"Setting random seed to {initialization_seed + self.trail_id}.")
-        self.initial_state = np.random.uniform(-1, 1, (self.ising_model.num_variables,))
+            self.initial_state = np.random.uniform(-1, 1, (self.ising_model.num_variables,))
+        elif self.config.eigenvalue_start:
+            coupling = self.ising_model.to_qubo()[0]
+            _, eigvecs = np.linalg.eigh(coupling)
+            self.initial_state = np.sign(eigvecs[:self.ising_model.num_variables, -2])
+
         self.ising_model = self.ising_model.copy()  # Placeholder for any model-specific initialization
         return self.initial_state, self.ising_model

@@ -20,8 +20,9 @@ use_multiprocessing: False
 
 nb_cores: 16
 
-# Initialization seed
+# Initialization seed or use eigenvector of matrix
 initialization_seed: 42
+eigenvalue_start: False
 
 # Logging or not
 gen_logfile: False
@@ -62,6 +63,7 @@ current: 1.0
 capacitance: 1
 accumulation_delay: 0.
 broadcast_delay: 0.
+delay_offset: 0.0
 sigma: -1.0
 ode_choice: "FE"
 

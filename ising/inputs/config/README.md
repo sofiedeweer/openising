@@ -15,7 +15,9 @@ The config file is written in YAML. It must has the following parameters:
 
 *nb_threads:* [positive int] the amount of threads used for multiprocessing.
 
-*initialization_seed:* seed to initialize the initial spin states.
+*initialization_seed:* [int] seed to initialize the initial spin states.
+
+*eigenvalue_start:* [bool] use the eigenvalue of the coupling matrix as a starting point. 
 
 *gen_logfile:* [bool] whether generate HDF5 log file that records all spin updating details (Default: False if not defined.)
 
@@ -78,6 +80,8 @@ The config file is written in YAML. It must has the following parameters:
 *accumulation_delay:* [float] The amount of accumulation delay present. The value represent the amount of time passes before the next node sees a change.
 
 *broadcast_delay:* [float] The same as accumulation delay, but now in the boradcast dimension.
+
+*delay_offset:* [float] Amount of delay due to the comparator in seconds.
 
 *sigma:* [float] the amount of standard deviation present in the mismatch of the coupling unit. When -1 this is disabled in the simulation. 
 

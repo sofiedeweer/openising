@@ -1,5 +1,6 @@
 import pathlib
 import numpy as np
+from argparse import Namespace
 import scipy.sparse.linalg as spalg
 
 from ising.utils.HDF5Logger import return_metadata
@@ -9,7 +10,7 @@ from ising.utils.helper_functions import return_rx
 from ising.utils.numpy import triu_to_symm
 
 
-def parse_hyperparameters(args: dict) -> dict[str:]:
+def parse_hyperparameters(args: Namespace) -> dict[str:]:
     """Parses the arguments needed for the solvers.
 
     Args:
@@ -41,6 +42,7 @@ def parse_hyperparameters(args: dict) -> dict[str:]:
         hyperparameters["ode_choice"] = args.ode_choice
         hyperparameters["accumulation_delay"] = float(args.accumulation_delay)
         hyperparameters["broadcast_delay"] = float(args.broadcast_delay)
+        hyperparameters["delay_offset"] = float(args.delay_offset)
         hyperparameters["current"] = float(args.current)
         hyperparameters["sigma"] = float(args.sigma)
 

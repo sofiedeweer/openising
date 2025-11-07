@@ -48,19 +48,23 @@ class Multiplicative(SolverBase):
         self.coupling_neg = coupling_neg.astype(np.float32)
         self.voltage_delay_idx = voltage_delay_idx
 
-    def construct_voltage_delay(self, previous_states: deque[np.ndarray]) -> np.ndarray:
+    def construct_voltage_delay(self, previous_states: np.ndarray) -> np.ndarray:
         """!Generates a matrix of voltages taking into account what each voltage sees at the current time step.
 
-        @param previous_states (deque[np.ndarray]): deque containing all the previous states up to\
+        @param previous_states (np.ndarray): deque containing all the previous states up to\
                   accumulation_delay + broadcast_delay + 1 time steps.
+        @param previous_Voltages (np.ndarray|None): list containing all previous voltage matrices up to inter_delay
+             time steps.
 
         @return Voltages (np.ndarray): voltage matrix with all delays taken into account.
         """
         Voltages = np.zeros(
             (self.num_variables + int(self.bias), self.num_variables + int(self.bias)), dtype=np.float32
         )
-        for i in range(self.num_variables):
-            Voltages[i, :] = previous_states[self.voltage_delay_idx[i, :], i]
+
+        Voltages[: self.num_variables, : self.num_variables] = previous_states[
+            self.voltage_delay_idx, np.arange(self.num_variables)[:, None]
+        ]
         if self.bias == 1:
             Voltages[:, -1] = previous_states[0, :]
             Voltages[-1, :] = 1.0
@@ -256,6 +260,7 @@ class Multiplicative(SolverBase):
         ode_choice: str = "FE",
         accumulation_delay: float = 0.0,
         broadcast_delay: float = 0.0,
+        delay_offset: float = 0.0,
         sigma: float = -1.0,
         file: pathlib.Path | None = None,
     ) -> tuple[np.ndarray, float]:
@@ -279,6 +284,7 @@ class Multiplicative(SolverBase):
         @param ode_choice (str): the choice of ODE solver.
         @param accumulation_delay (float): the amount of accumulation delay in seconds.
         @param broadcast_delay (float): the amount of broadcast delay in seconds.
+        @param delay_offset (float): amount of delay due to the comparator, which offsets all the delays.
         @param sigma (float): the standard deviation of mismatch in the coupling.
         @param file: (pathlib.Path,None): the path to the logfile
 
@@ -310,31 +316,41 @@ class Multiplicative(SolverBase):
 
         dtMult = 0.1 * capacitance / (current * np.max(np.abs(np.sum(coupling, axis=1))))
 
-        if (accumulation_delay > 0.0 and accumulation_delay < dtMult) or (
-            broadcast_delay > 0.0 and broadcast_delay < dtMult
+        if (
+            (accumulation_delay > 0.0 and accumulation_delay < dtMult)
+            or (broadcast_delay > 0.0 and broadcast_delay < dtMult)
+            or (delay_offset > 0.0 and delay_offset < dtMult)
         ):
             # Adjust time step if delays are smaller than dtMult
             num_iterations = int(
                 num_iterations
-                * dtMult / min(
+                * dtMult
+                / min(
                     broadcast_delay if broadcast_delay != 0 else 1.0,
                     accumulation_delay if accumulation_delay != 0 else 1.0,
+                    delay_offset if delay_offset != 0 else 1.0,
                 )
             )
-            dtMult = min(accumulation_delay, broadcast_delay)
+            dtMult = min(
+                broadcast_delay if broadcast_delay != 0 else 1.0,
+                accumulation_delay if accumulation_delay != 0 else 1.0,
+                delay_offset if delay_offset != 0 else 1.0,
+            )
         LOGGER.info(f"Adjusted time step to {dtMult:.4e} for stability.")
         accumulation_delay = int(accumulation_delay / dtMult)
         broadcast_delay = int(broadcast_delay / dtMult)
+        delay_offset = int(delay_offset / dtMult)
 
-        total_delay = (self.num_variables - 1) * (accumulation_delay + broadcast_delay)
+        total_delay = (self.num_variables - 1) * (accumulation_delay + broadcast_delay) + delay_offset
+        LOGGER.info(f"Total delay in system: {total_delay} time steps.")
 
         if accumulation_delay > 0 or broadcast_delay > 0:
-            voltage_delay_idx = np.zeros(
-                (self.num_variables + int(self.bias), self.num_variables + int(self.bias)), dtype=np.int8
-            )
+            voltage_delay_idx = np.zeros((self.num_variables, self.num_variables), dtype=np.int8)
             for i in range(self.num_variables):
                 for j in range(self.num_variables):
-                    voltage_delay_idx[i, j] = np.floor(np.abs(i - j) * (accumulation_delay + broadcast_delay))
+                    voltage_delay_idx[i, j] = (
+                        np.floor(np.abs(i - j) * (accumulation_delay + broadcast_delay)) + delay_offset
+                    )
 
         # Set the parameters for easy calling
         init_size = int(init_cluster_size * model.num_variables)

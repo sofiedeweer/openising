@@ -216,6 +216,7 @@ class SimulationStage(Stage):
                     "stop_criterion",
                     "accumulation_delay",
                     "broadcast_delay",
+                    "delay_offset",
                     "sigma",
                 ],
             ),
