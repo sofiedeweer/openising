@@ -30,7 +30,7 @@ class DummyCreatorStage(Stage):
             if self.problem_type == "Maxcut":
                 N = self.config.dummy_size
                 LOGGER.info(f"size: {N}, seed: {seed}")
-                dummy_dict = self.generate_dummy_maxcut(N, seed)
+                dummy_dict = self.generate_dummy_maxcut(N, self.config.quantization_precision, seed)
             elif self.problem_type in ["TSP", "ATSP"]:
                 N = self.config.dummy_size
                 weight_constant = self.config.dummy_weight_constant if hasattr(
@@ -80,17 +80,19 @@ class DummyCreatorStage(Stage):
         yield from sub_stage.run()
 
     @staticmethod
-    def generate_dummy_maxcut(N: int, seed: int = 0) -> dict:
+    def generate_dummy_maxcut(N: int, nb_bits: int=2, seed: int = 0) -> dict:
         """! Generates a random Max Cut Ising model.
+
         @param N: Number of nodes in the graph.
-        @param seed: Random seed for reproducibility.
+        @param nb_bits (int): number of bits to represent the weights.
+        @param seed (int): Random seed for reproducibility.
 
         @return dummy_dict: dict containing graph and IsingModel representing the Max Cut problem.
         """
 
         np.random.seed(seed)
         name = f"DummyMaxCut_N{N}_seed{seed}"
-        J = np.random.choice([-0.5, 0.0, 0.5], (N, N), p=[0.15, 0.7, 0.15])
+        J = np.random.choice(np.arange(int(-2**(nb_bits-1)+1), int(2**(nb_bits-1))), (N, N))
 
         # Map the J matrix to a graph
         graph = nx.Graph(name=name)

@@ -24,6 +24,13 @@ To simulate, just run:
 python main.py
 ```
 
-A configuration file (YAML) is required as the input for the framework. The readme for the configuration can be found in the [readme](./ising/inputs/config/README.md) of the folder.
+A configuration file (YAML) is required as the input for the framework. The readme for the configuration can be found in the [readme](./ising/inputs/config/README.md) of the folder. 
+
+For testing multiple values of the same parameter, you can run:
+```bash
+python main_loop.py
+```
+
+This simulation will run for the given problems and parameter values. For each correpsonding problem a histogram and boxplot are generated and stored under `ising/outputs/<problem>/plots`.
 
 It is allowed to use [Gurobi](https://www.gurobi.com/), indicated by the argument `-use_gurobi`. However, it can only be used when you have an active [Gurobi license](https://www.gurobi.com/solutions/licensing/).
