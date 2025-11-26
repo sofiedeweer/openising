@@ -83,7 +83,9 @@ The config file is written in YAML. It must has the following parameters:
 
 *delay_offset:* [float] Amount of delay due to the comparator in seconds.
 
-*sigma:* [float] the amount of standard deviation present in the mismatch of the coupling unit. When -1 this is disabled in the simulation. 
+*sigma_J:* [float] the amount of standard deviation present in the mismatch of the coupling unit. When -1 this is disabled in the simulation. 
+
+*sigma_C:* [float] the standard deviation for the mismatch in the capacitor. When -1, the mismatch is disabled.
 
 *ode_choice:* [str] which ODE solver to perform the simulation with. Currently RK (Runge-Kutta 4) and FE (Forward Euler) are implemented.
 

@@ -74,7 +74,7 @@ class SimulationStage(Stage):
         optim_energy_collect = {solver: [] for solver in self.config.solvers}
         comp_time_collect = {solver: [] for solver in self.config.solvers}
         operation_count = {solver: -1 for solver in self.config.solvers}
-
+        initialization_state_collect = []
         logfile_collect = []
         if self.config.use_multiprocessing:
             runs_over = nb_runs - runs_per_thread * nb_cores
@@ -89,7 +89,7 @@ class SimulationStage(Stage):
                 )
                 for i in range(nb_cores)
             ]
-            with multiprocessing.Pool(nb_cores, initializer=os.nice, initargs=(1,)) as pool:
+            with multiprocessing.Pool(nb_cores, initializer=os.nice, initargs=(5,)) as pool:
                 results = pool.starmap(self.partial_runs, tasks)
         else:
             results = self.partial_runs(nb_runs, logpath, 0)
@@ -105,6 +105,7 @@ class SimulationStage(Stage):
                 comp_time_collect[solver] += res[2][solver]
                 operation_count[solver] = res[3][solver]
             logfile_collect += res[4]
+            initialization_state_collect += res[5]
 
         ans = Ans(
             benchmark=self.benchmark_abbreviation,
@@ -116,6 +117,7 @@ class SimulationStage(Stage):
             computation_time=comp_time_collect,
             operation_count=operation_count,
             logfiles=logfile_collect,
+            initialization_states = initialization_state_collect,
         )
         debug_info = Ans()  # Placeholder for debug information, if needed
 
@@ -130,6 +132,7 @@ class SimulationStage(Stage):
         optim_energy_collect = {solver: [] for solver in self.config.solvers}
         comp_time_collect = {solver: [] for solver in self.config.solvers}
         nb_operations_collect = {solver: -1 for solver in self.config.solvers}
+        initialization_state_collect = []
         logfile_collect = []
         pbar = tqdm.tqdm(range(nb_runs), ascii="░▒█", desc=f"Running trials of thread {os.getpid()}")
         for trail_id in pbar:
@@ -140,12 +143,11 @@ class SimulationStage(Stage):
             self.kwargs["ising_model"] = self.ising_model
             self.kwargs["trail_id"] = trail_id
             if len(self.list_of_callables) >= 1:
-                self.kwargs["initialization_seed"] = initialization_seed
+                self.kwargs["initialization_seed"] = initialization_seed + start_run_id + trail_id
                 sub_stage = self.list_of_callables[0](self.list_of_callables[1:], **self.kwargs)
                 initial_state, _ = sub_stage.run()
             else:
                 initial_state = np.random.uniform(-1, 1, (self.ising_model.num_variables,))
-
             for solver in self.config.solvers:
                 if self.gen_logfile and self.benchmark_abbreviation != "MIMO":
                     logfile = (
@@ -160,19 +162,27 @@ class SimulationStage(Stage):
                 optim_state, optim_energy, computation_time, nb_operations = self.run_solver(
                     solver, initial_state, self.ising_model, logfile, **hyperparameters
                 )
-
                 optim_state_collect[solver].append(optim_state)
                 optim_energy_collect[solver].append(optim_energy)
                 comp_time_collect[solver].append(computation_time)
                 nb_operations_collect[solver] = nb_operations
                 logfile_collect.append(logfile)
+            initialization_state_collect.append(initial_state)
+
             pbar.set_description(
                 f"Running trails of thread {os.getpid()} [#{trail_id + 1}, energy: {optim_energy:.2f}]"
             )
         end_time = datetime.datetime.now()
         LOGGER.info(f"Simulation of thread {os.getpid()} finished at {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
         LOGGER.info(f"Thread {os.getpid()} simulation time: {end_time - start_time}")
-        return optim_state_collect, optim_energy_collect, comp_time_collect, nb_operations_collect, logfile_collect
+        return (
+            optim_state_collect,
+            optim_energy_collect,
+            comp_time_collect,
+            nb_operations_collect,
+            logfile_collect,
+            initialization_state_collect,
+        )
 
     def run_solver(
         self,
@@ -217,7 +227,8 @@ class SimulationStage(Stage):
                     "accumulation_delay",
                     "broadcast_delay",
                     "delay_offset",
-                    "sigma",
+                    "sigma_J",
+                    "sigma_C",
                 ],
             ),
             "inSituSA": (
