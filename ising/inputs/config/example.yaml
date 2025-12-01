@@ -64,8 +64,7 @@ capacitance: 1
 accumulation_delay: 0.
 broadcast_delay: 0.
 delay_offset: 0.0
-sigma_J: -1.0
-sigma_C: -1.0
+# sigma_J: -1.0
 ode_choice: "FE"
 
 # Parameters for BRIM
@@ -115,6 +114,9 @@ offset_ratio: 0.3
 # Parameters for noise stage
 device_noise: False
 noise_level: 0.1
+
+# Parameters for mismatch stage
+mismatch_std: 0.0
 
 #################################
 ## Dummy creator hyperparameters

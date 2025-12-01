@@ -83,9 +83,7 @@ The config file is written in YAML. It must has the following parameters:
 
 *delay_offset:* [float] Amount of delay due to the comparator in seconds.
 
-*sigma_J:* [float] the amount of standard deviation present in the mismatch of the coupling unit. When -1 this is disabled in the simulation. 
-
-*sigma_C:* [float] the standard deviation for the mismatch in the capacitor. When -1, the mismatch is disabled.
+<!-- *sigma_J:* [float] the amount of standard deviation present in the mismatch of the coupling unit. When -1 this is disabled in the simulation.  -->
 
 *ode_choice:* [str] which ODE solver to perform the simulation with. Currently RK (Runge-Kutta 4) and FE (Forward Euler) are implemented.
 
@@ -165,6 +163,10 @@ Besides, the following parameters will be added within returned ans:
 *quantized_model:* [IsingModel] the Ising model after quantization.
 
 *original_required_int_precision:* [int] the J precision required in the Ising model without quantization (h is not quantized).
+
+**If MismatchStage is used, the following parameter is required:**
+
+*mismatch_std:* [float] the standard deviation present in the model. When 0.0, the mismatch is automatically turned off.
 
 **If DummyCreatorStage is used, the following parameters are required:**
 

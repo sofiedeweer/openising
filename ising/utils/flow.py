@@ -44,8 +44,7 @@ def parse_hyperparameters(args: Namespace) -> dict[str:]:
         hyperparameters["broadcast_delay"] = float(args.broadcast_delay)
         hyperparameters["delay_offset"] = float(args.delay_offset)
         hyperparameters["current"] = float(args.current)
-        hyperparameters["sigma_J"] = float(args.sigma)
-        hyperparameters["sigma_C"] = float(args.sigma_C)
+        # hyperparameters["sigma_J"] = float(args.sigma_J)
 
     # BRIM parameters
     if "BRIM" in args.solvers:

@@ -20,8 +20,9 @@ class Multiplicative(SolverBase):
         capacitance: float,
         current: float,
         stop_criterion: float,
-        coupling_pos: np.ndarray,
-        coupling_neg: np.ndarray,
+        coupling:np.ndarray,
+        # coupling_pos: np.ndarray,
+        # coupling_neg: np.ndarray,
         voltage_delay_idx: np.ndarray | None = None,
     ):
         """!Set the parameters for the solver.
@@ -40,8 +41,9 @@ class Multiplicative(SolverBase):
         self.capacitance = np.float32(capacitance)
         self.current = current
         self.stop_criterion = stop_criterion
-        self.coupling_pos = coupling_pos.astype(np.float32)
-        self.coupling_neg = coupling_neg.astype(np.float32)
+        self.coupling = coupling.astype(np.float32)
+        # self.coupling_pos = coupling_pos.astype(np.float32)
+        # self.coupling_neg = coupling_neg.astype(np.float32)
         self.voltage_delay_idx = voltage_delay_idx
 
     def construct_voltage_delay(self, previous_states: np.ndarray) -> np.ndarray:
@@ -104,9 +106,9 @@ class Multiplicative(SolverBase):
         while i < self.num_iterations and max_change > self.stop_criterion:
             if accumulation_delay > 0 or broadcast_delay > 0:
                 Voltages = self.construct_voltage_delay(previous_states)
-                dv = np.diagonal(self.coupling_pos @ Voltages).copy()
+                dv = np.diagonal(self.coupling @ Voltages).copy()
             else:
-                dv = self.coupling_pos @ np.sign(state)
+                dv = self.coupling @ np.sign(state)
             if self.bias:
                 dv[-1] = 0.0
 
@@ -147,7 +149,7 @@ class Multiplicative(SolverBase):
 
         @param model (IsingModel): the model to solve.
         @param state (np.ndarray): the initial state to start the simulation.
-        2param total_delay (int): total delay present in the system.
+        @param total_delay (int): total delay present in the system.
         @param logging (HDF5Logger|None): the logger to use when flipping is disabled.
 
         @return sigma (np.ndarray): the final discrete state of the system.
@@ -173,33 +175,38 @@ class Multiplicative(SolverBase):
         # States needed for delay calculation. The newest state is always appended to the end of the list.
         previous_states = np.array([np.sign(state) for _ in range(total_delay + 1)])
         counter = total_delay + 1
-        if self.mismatch:
-            dv_pos = self.coupling_pos @ np.sign(state)
-            dv_neg = self.coupling_neg @ np.sign(state)
-            dv = np.where(dv_pos > 0, dv_pos, dv_neg)
-        else:
-            dv = self.coupling_pos @ np.sign(state)
-        dv *= self.current / self.capacitance
+        # if self.mismatch:
+        #     dv_pos = self.coupling_pos @ np.sign(state)
+        #     dv_neg = self.coupling_neg @ np.sign(state)
+        #     dv = np.where(dv_pos > 0, dv_pos, dv_neg)
+        # else:
+        #     dv = self.coupling_pos @ np.sign(state)
+        dv = self.coupling @ np.sign(state) * self.current / self.capacitance
         while i < self.num_iterations and max_change > self.stop_criterion:
             if counter < total_delay + 1:
-                if self.mismatch:
-                    if total_delay > 0: #mismatch and delay present
-                        # TODO: debug calculation
-                        Voltages = self.construct_voltage_delay(previous_states)
-                        dv_pos = np.diagonal(self.coupling_pos * Voltages).copy()
-                        dv_neg = np.diagonal(self.coupling_neg * Voltages).copy()
-                        dv = np.where(dv_pos > 0, dv_pos, dv_neg)
-                    else: # mismatch present
-                        dv_pos = self.coupling_pos * np.sign(state)
-                        dv_neg = self.coupling_neg * np.sign(state)
-                        dv_all = np.where(dv_pos > 0, dv_pos, dv_neg)
-                        dv = np.sum(dv_all, axis=1)
-                else:
-                    if total_delay > 0: # delay present
-                        Voltages = self.construct_voltage_delay(previous_states)
-                        dv = np.diagonal(self.coupling_pos @ Voltages).copy()
-                    else: # no hardware imperfections
-                        dv = self.coupling_pos @ np.sign(state)
+                # if self.mismatch:
+                    # if total_delay > 0:  # mismatch and delay present
+                    #     # TODO: debug calculation
+                    #     Voltages = self.construct_voltage_delay(previous_states)
+                    #     dv_pos = np.diagonal(self.coupling_pos * Voltages).copy()
+                    #     dv_neg = np.diagonal(self.coupling_neg * Voltages).copy()
+                    #     dv = np.where(dv_pos > 0, dv_pos, dv_neg)
+                    # else:  # mismatch present
+                    #     dv_pos = self.coupling_pos * np.sign(state)
+                    #     dv_neg = self.coupling_neg * np.sign(state)
+                    #     dv_all = np.where(dv_pos > 0, dv_pos, dv_neg)
+                    #     dv = np.sum(dv_all, axis=1)
+                # else:
+                #     if total_delay > 0:  # delay present
+                #         Voltages = self.construct_voltage_delay(previous_states)
+                #         dv = np.diagonal(self.coupling_pos @ Voltages).copy()
+                #     else:  # no hardware imperfections
+                #         dv = self.coupling_pos @ np.sign(state)
+                if total_delay > 0:
+                    Voltages = self.construct_voltage_delay(previous_states)
+                    dv = np.diagonal(self.coupling @ Voltages).copy()
+                else:  # no hardware imperfections
+                    dv = self.coupling @ np.sign(state)
                 dv *= self.current / self.capacitance
                 counter += 1
                 if self.bias:
@@ -249,8 +256,7 @@ class Multiplicative(SolverBase):
         accumulation_delay: float = 0.0,
         broadcast_delay: float = 0.0,
         delay_offset: float = 0.0,
-        sigma_J: float = -1.0,
-        sigma_C: float= -1.0,
+        # sigma_J: float = -1.0,
         file: pathlib.Path | None = None,
     ) -> tuple[np.ndarray, float]:
         """!Solves the given problem using a multiplicative coupling scheme.
@@ -275,7 +281,6 @@ class Multiplicative(SolverBase):
         @param broadcast_delay (float): the amount of broadcast delay in percentage of C/I value.
         @param delay_offset (float): amount of delay due to the comparator, which offsets all the delays.
         @param sigma_J (float): the standard deviation of mismatch in the coupling.
-        @param sigma_C (float): the standard deviation of mismatch present in the capacitance.
         @param file: (pathlib.Path,None): the path to the logfile
 
         @return state (np.ndarray): the final state of the system.
@@ -294,24 +299,18 @@ class Multiplicative(SolverBase):
 
         # Ensure the mean and variance of J are reasonable
         coupling = triu_to_symm(new_model.J)
-        if sigma_J != -1.0:
-            self.mismatch = True
-            coupling_pos = coupling * (1 + np.random.normal(0.0, sigma_J, coupling.shape))
-            coupling_neg = coupling * (1 + np.random.normal(0.0, sigma_J, coupling.shape))
-        else:
-            self.mismatch = False
-            coupling_pos = coupling
-            coupling_neg = coupling
+        # if sigma_J != -1.0:
+        #     self.mismatch = True
+        #     coupling_pos = coupling * (1 + np.random.normal(0.0, sigma_J, coupling.shape))
+        #     coupling_neg = coupling * (1 + np.random.normal(0.0, sigma_J, coupling.shape))
+        # else:
+        #     self.mismatch = False
+        #     coupling_pos = coupling
+        #     coupling_neg = coupling
         self.num_variables = model.num_variables
 
         dtMult = 0.1 * capacitance / (current * np.max(np.abs(np.sum(coupling, axis=1))))
 
-        if sigma_C != -1.0:
-            self.mismatch_C = True
-            capacitance_nodes = capacitance * (1 + np.random.normal(0.0, sigma_C, size=(model.num_variables,)))
-        else:
-            self.mismatch_C = False
-            capacitance_nodes = np.ones((model.num_variables,)) * capacitance
 
         capacitance_delay = capacitance / model.num_variables
         LOGGER.info(f"Delay capacitance: {capacitance_delay:.4e} F")
@@ -328,9 +327,9 @@ class Multiplicative(SolverBase):
             dtMult = delay_offset * time_constant
             num_iterations = int(np.ceil(num_iterations * (dtMult / (delay_offset * time_constant))))
 
-        accumulation_delay = int(accumulation_delay*time_constant / dtMult)
-        broadcast_delay = int(broadcast_delay*time_constant / dtMult)
-        delay_offset = int(delay_offset*time_constant / dtMult)
+        accumulation_delay = int(accumulation_delay * time_constant / dtMult)
+        broadcast_delay = int(broadcast_delay * time_constant / dtMult)
+        delay_offset = int(delay_offset * time_constant / dtMult)
 
         total_delay = (self.num_variables - 1) * (accumulation_delay + broadcast_delay) + delay_offset
         LOGGER.info(f"Total delay in system: {total_delay} time steps.")
@@ -349,11 +348,12 @@ class Multiplicative(SolverBase):
         self.set_params(
             dtMult,
             num_iterations,
-            capacitance_nodes,
+            capacitance,
             current,
             stop_criterion,
-            coupling_pos,
-            coupling_neg,
+            coupling,
+            # coupling_pos,
+            # coupling_neg,
             voltage_delay_idx=voltage_delay_idx if (total_delay > 0) else None,
         )
 
@@ -450,7 +450,6 @@ class Multiplicative(SolverBase):
                 # if counter >= int(nb_flipping / 4):
                 #     restart = int(it / 2)
                 #     counter = 0
-
                 cluster = find_cluster(
                     self.size_function(
                         iteration=it - restart,
