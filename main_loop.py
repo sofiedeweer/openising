@@ -36,7 +36,7 @@ with config_path.open("r") as f:
 
 parameter_values = {test_parameter: config[test_parameter] for test_parameter in test_parameters}
 for test_parameter in test_parameters:
-    config[test_parameter] = 0
+    config[test_parameter] = type(parameter_values[test_parameter][0])(0)
 
 for i, problem in enumerate(problem_type):
     print("===============================")
@@ -105,7 +105,7 @@ for i, problem in enumerate(problem_type):
         for value in parameter_values[test_parameter]:
             if problem == "MIMO":
                 energies = []
-                for _ in range(config.nb_trials):
+                for _ in range(config["nb_trials"]):
                     energies.append(ans[test_parameter][value].MIMO[_].lowest_energy["Multiplicative"])
             else:
                 energies = ans[test_parameter][value].energies["Multiplicative"]
@@ -118,40 +118,60 @@ for i, problem in enumerate(problem_type):
                 label=f"{parameter_name} = {value}: best energy = {np.min(energies):.2f}, avg energy = {
                     np.mean(energies):.2f}",
             )
-        plt.hist(
-            energies_base,
-            bins=15,
-            alpha=0.7,
-            edgecolor="black",
-            label=f"Base run: best energy = {np.min(energies_base):.2f}, avg energy = {np.mean(energies_base):.2f}",
-        )
+
         if best_found is not None:
+            if best_found < 0.0:
+                plt.axvline(
+                0.9 * best_found,
+                color="k",
+                linestyle="-.",
+                label=f"90% Best known: {0.9 * best_found}",
+                )
+            else:
+                plt.axvline(
+                    1.1 * best_found,
+                    color="k",
+                    linestyle="-.",
+                    label=f"90% Best known: {1.1 * best_found}",
+                )
             plt.axvline(best_found, color="k", linestyle="--", label=f"Best known: {best_found}")
-            plt.axvline(0.9 * best_found, color="k", linestyle="-.", label=f"90% Best known: {0.9 * best_found}")
 
         plt.title(f"Energy distribution for different {parameter_name} values - {problem} problem")
         plt.xlabel("Energy")
         plt.ylabel("Frequency")
         plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
-        plt.savefig(
-            save_folder / f"{problem}/plots/{problem}_{test_parameter}_energy_distribution.png", bbox_inches="tight"
+        fig_name = (
+            f"{problem}_{test_parameter}_energy_distribution_{'_flipping' if config['nb_flipping'] > 1 else ''}.png"
         )
+        plt.savefig(save_folder / f"figures/{fig_name}", bbox_inches="tight")
         plt.close()
 
         plt.figure()
-        plt.boxplot(all_energies, positions=[0.0] + parameter_values[test_parameter])
+        plt.boxplot(all_energies, xticks=["Base"] + [str(val) for val in parameter_values[test_parameter]])
         plt.xlabel(parameter_name)
         plt.ylabel("Energy")
         if best_found is not None:
+            if best_found < 0.0:
+                plt.axvline(
+                0.9 * best_found,
+                color="k",
+                linestyle="-.",
+                label=f"90% Best known: {0.9 * best_found}",
+                )
+            else:
+                plt.axvline(
+                    1.1 * best_found,
+                    color="k",
+                    linestyle="-.",
+                    label=f"90% Best known: {1.1 * best_found}",
+                )
             plt.axhline(best_found, color="k", linestyle="--", label=f"Best known: {best_found}")
-            plt.axhline(0.9 * best_found, color="k", linestyle="-.", label=f"90% Best known: {0.9 * best_found}")
+
         plt.title(f"Energy distribution for different {parameter_name} values - {problem} problem")
         plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+        fig_name = f"{problem}_{test_parameter}_energy_box_plot{'_flipping' if (config['nb_flipping'] > 1) else ''}.png"
         plt.savefig(
-            save_folder
-            / f"{problem}/plots/{problem}_{test_parameter}_energy_box_plot{
-                '_flipping' if (hasattr(config, 'nb_flipping') and config['nb_flipping'] > 1) else ''
-            }.png",
+            save_folder / f"figures/{fig_name}",
             bbox_inches="tight",
         )
         plt.close()
