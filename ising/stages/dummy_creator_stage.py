@@ -92,7 +92,7 @@ class DummyCreatorStage(Stage):
 
         np.random.seed(seed)
         name = f"DummyMaxCut_N{N}_seed{seed}"
-        J = np.random.choice(np.arange(int(-2**(nb_bits-1)+1), int(2**(nb_bits-1))), (N, N))
+        J = np.random.choice(np.arange(int(-2**(nb_bits-1)), int(2**(nb_bits-1)-1)), (N, N))
 
         # Map the J matrix to a graph
         graph = nx.Graph(name=name)

@@ -34,8 +34,8 @@ with config_path.open("r") as f:
     config = yaml.safe_load(f)
 
 parameter_values = {test_parameter: config[test_parameter] for test_parameter in test_parameters}
-for test_parameter in test_parameters:
-    config[test_parameter] = type(parameter_values[test_parameter][0])(0)
+for test_param in test_parameters:
+    config[test_param] = type(parameter_values[test_param][0])(0)
 
 for i, problem in enumerate(problem_type):
     print("===============================")
@@ -48,7 +48,7 @@ for i, problem in enumerate(problem_type):
     new_config["benchmark"] = config["benchmark"][i]
 
     if problem == "MIMO":
-        new_config["nb_trials"] = new_config["nb_runs"]
+        new_config["nb_trials"] = config["nb_runs"]
         new_config["nb_runs"] = 1
 
     with (TOP / file).open("w") as f:

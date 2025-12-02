@@ -77,11 +77,11 @@ The config file is written in YAML. It must has the following parameters:
 
 *capacitance:* [float] the capacitance.
 
-*accumulation_delay:* [float] The amount of accumulation delay present. The value represent the amount of time passes before the next node sees a change.
+*accumulation_delay:* [float] The amount of accumulation delay present. The value represent the fraction of the time constant between two coupling nodes.
 
 *broadcast_delay:* [float] The same as accumulation delay, but now in the boradcast dimension.
 
-*delay_offset:* [float] Amount of delay due to the comparator in seconds.
+*delay_offset:* [float] Amount of delay due to the comparator as a fraction of the time constant.
 
 <!-- *sigma_J:* [float] the amount of standard deviation present in the mismatch of the coupling unit. When -1 this is disabled in the simulation.  -->
 
