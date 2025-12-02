@@ -3,9 +3,12 @@ import pathlib
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
+from typing import Any
+
 
 from ising.utils.HDF5Logger import return_metadata
 from ising.postprocessing.helper_functions import get_metadata_from_logfiles
+from ising.stages.simulation_stage import Ans
 
 
 def summary_energies(logfiles: list[pathlib.Path], save_dir: pathlib.Path) -> None:
@@ -35,9 +38,17 @@ def summary_energies(logfiles: list[pathlib.Path], save_dir: pathlib.Path) -> No
         np.savetxt(save_path, summary, fmt="%.2f", header=header)
 
 
-def box_plot_energies(
+def box_plot_energies_logfiles(
     logfiles: list[pathlib.Path], best_found: float, save_dir: pathlib.Path, discriminate_by: str | None = None
 ) -> None:
+    """Generates a boxplot from the final energy obtained from a list of logfiles.
+
+    Args:
+        logfiles (list[pathlib.Path]): the list of logfiles to plot from.
+        best_found (float): best found energy to plot as a reference.
+        save_dir (pathlib.Path): the save directory.
+        discriminate_by (str | None, optional): to discriminate the colors by. Defaults to None.
+    """
     data = get_metadata_from_logfiles(
         logfiles, discriminate_by if discriminate_by is not None else "num_iterations", "solution_energy"
     )
@@ -62,13 +73,148 @@ def box_plot_energies(
     plt.close()
 
 
-def bar_plot(
-    logfiles: list[pathlib.Path], best_found: float, save_dir: pathlib.Path, discriminate_by: str | None = None
+def box_plot_energies_loop(
+    ans_data: dict[Any:Ans],
+    base_ans: Ans,
+    parameter_values: list[Any],
+    parameter_name: str,
+    problem: str,
+    best_found: float | None,
+    save_folder: pathlib.Path,
+    fig_name: str,
 ):
-    data = get_metadata_from_logfiles(
-        logfiles, discriminate_by if discriminate_by is not None else "num_iterations", "solution_energy"
+    """Generates a box plot for different values of `parameter_name`. Per value the box plot are ordened per solver.
+
+    Args:
+        ans_data (dict[Any:Ans]): the data of the different value runs.
+        base_ans (Ans): the data of the base run (`parameter_name` is turned off).
+        parameter_values (list[Any]): list of all the parameter values tested.
+        parameter_name (str): the name of the parameter.
+        problem (str): the problem being solved.
+        best_found (float | None): the best found energy to plot as reference.
+        save_folder (pathlib.Path): the folder in which to save the figure.
+        fig_name (str): the name of the figure.
+    """
+    solvers = base_ans.config.solvers
+    df_solvers = []
+
+    for solver in solvers:
+        df_solvers.append(pd.DataFrame({parameter_name: "Base", "energy": base_ans.energies[solver], "solver": solver}))
+        for value in parameter_values:
+            if problem == "MIMO":
+                energies = []
+                nb_trials = ans_data[value].config.nb_trials
+                for trials in range(nb_trials):
+                    energies.append(ans_data[value].MIMO[trials].lowest_energy[solver])
+            else:
+                energies = ans_data[value].energies[solver]
+            df_solvers.append(pd.DataFrame({parameter_name: str(value), "energy": energies, "solver": solver}))
+    df = pd.concat(df_solvers)
+
+    plt.figure()
+    sns.boxplot(data=df, x=parameter_name, y="energy", hue="solver")
+    if best_found is not None:
+        plt.axhline(y=best_found, color="k", linestyle="--", label=f"Best found: {best_found}")
+        if best_found < 0.0:
+            plt.axhline(
+                0.9 * best_found,
+                color="k",
+                linestyle="-.",
+                label=f"90% Best found: {0.9 * best_found}",
+            )
+        elif best_found > 0.0:
+            plt.axhline(
+                1.1 * best_found,
+                color="k",
+                linestyle="-.",
+                label=f"90% Best found: {1.1 * best_found}",
+            )
+    plt.title(f"Energy distribution for different {parameter_name} values - {problem} problem")
+    plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+    plt.xlabel(parameter_name)
+    plt.ylabel("Energy")
+    plt.savefig(
+        save_folder / f"figures/{fig_name}",
+        bbox_inches="tight",
     )
-    for solver, solver_dat in data.items():
+    plt.close()
+
+
+def histogram_energies_loop(
+    ans_data: dict[Any:Ans],
+    ans_base: Ans,
+    parameter_values: list[Any],
+    parameter_name: str,
+    problem: str,
+    best_found: float | None,
+    fig_name: str,
+    save_folder: pathlib.Path,
+):
+    """Plots a histogram for all the solvers on the different values of `parameter_name`.
+
+    Args:
+        ans_data (dict[Any:Ans]): a dictionary containing the answer data for all the different `parameter_values`.
+        ans_base (Ans): the answer data for the base run with `parameter_name` turned off.
+        parameter_values (list[Any]): the list of all the parameter values tested.
+        parameter_name (str): the name of the parameter.
+        problem (str): the problem that was tested.
+        best_found (float | None): the best found energy to plot as reference.
+        fig_name (str): _description_
+        save_folder (pathlib.Path): _description_
+    """
+    solvers = ans_base.config.solvers
+    for solver in solvers:
+        if problem == "MIMO":
+            energies_base = []
+            for trial in range(ans_base.config.nb_trials):
+                energies_base.append(ans_base.MIMO[trial].lowest_energy[solver])
+        else:
+            energies_base = ans_base.energies[solver]
         plt.figure()
-        if discriminate_by is not None:
-            plt.bar(solver_dat)
+        plt.hist(
+            energies_base,
+            bins=15,
+            alpha=0.7,
+            edgecolor="black",
+            label=f"Base run: best energy = {np.min(energies_base[solver]):.2f}, avg energy: {
+                np.mean(energies_base[solver]):.2f}",
+        )
+        for value in parameter_values:
+            if problem == "MIMO":
+                energies = []
+                for trial in range(ans_base.config.nb_trials):
+                    energies.append(ans_data[value].MIMO[trial].lowest_energy[solver])
+            else:
+                energies = ans_data[value].energies[solver]
+            plt.hist(
+                energies,
+                bins=15,
+                alpha=0.7,
+                edgecolor="black",
+                label=f"{parameter_name} = {value}: best energy = {np.min(energies):.2f}, avg energy = {
+                    np.mean(energies):.2f}",
+            )
+
+        if best_found is not None:
+            if best_found < 0.0:
+                plt.axvline(
+                    0.9 * best_found,
+                    color="k",
+                    linestyle="-.",
+                    label=f"90% Best known: {0.9 * best_found}",
+                )
+            elif best_found > 0.0:
+                plt.axvline(
+                    1.1 * best_found,
+                    color="k",
+                    linestyle="-.",
+                    label=f"90% Best known: {1.1 * best_found}",
+                )
+            plt.axvline(best_found, color="k", linestyle="--", label=f"Best known: {best_found}")
+
+        plt.title(f"Energy distribution for different {parameter_name} values - {problem} problem")
+        plt.xlabel("Energy")
+        plt.ylabel("Frequency")
+        plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+        plt.savefig(save_folder / f"figures/{fig_name}", bbox_inches="tight")
+        plt.close()
