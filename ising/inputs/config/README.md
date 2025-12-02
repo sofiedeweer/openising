@@ -5,8 +5,6 @@ The config file is written in YAML. It must has the following parameters:
 
 *benchmark:* [str] the workload file name, corresponding to the problem type set in API.
 
-*iter_list:* [positive int] also called as trail length, the number (integer) of iterations to run in the solver. Multiple values can be defined so that solvers will run with different trail length.
-
 *solvers:* [str] solvers to run. Options include: BRIM, SA, bSB, dSB, SCA, Multiplicative, all
 
 *nb_runs:* [positive int] number (integer) of trials to run.
@@ -17,13 +15,19 @@ The config file is written in YAML. It must has the following parameters:
 
 *nb_threads:* [positive int] the amount of threads used for multiprocessing.
 
-*initialization_seed:* seed to initialize the initial spin states.
+*initialization_seed:* [int] seed to initialize the initial spin states.
+
+*eigenvalue_start:* [bool] use the eigenvalue of the coupling matrix as a starting point. 
 
 *gen_logfile:* [bool] whether generate HDF5 log file that records all spin updating details (Default: False if not defined.)
 
 *logfile_discrimination:* [str | None] How the logfiles can be further discriminated against each other. If None, no discriminator will be made.
 
 ## Following parameters are optional, depending on the solvers used.
+
+**For each solver used**
+
+*num_iterations_{solver_name}:* [positive int] The amount of iterations the solver performs to converge to a solution.
 
 **Parameters for SA solver**
 
@@ -45,7 +49,7 @@ The config file is written in YAML. It must has the following parameters:
 
 **Parameters for in-Situ SA solver**
 
-*T:* [float] initial temperature for the annealing solvers (in-Situ SA, SA and SCA).
+*initial_temp_inSituSA:* [float] initial temperature for the annealing solvers. This one is different from the other annealing based solvers due to the larger temperature range.
 
 *T_final:* [float] final temperature, which should be lower than *T*, for the annealing solvers (in-Situ SA, SA and SCA).
 
@@ -69,11 +73,17 @@ The config file is written in YAML. It must has the following parameters:
 
 *exponent:* [float] the exponent by which the exponential function of cluster size changes.
 
-*pseudo_length:* [int] the sequence length of the pseudo-random LFSR generator. Currently able to support lengths of 2^i - 1, i = [1, 12] and None. When None the generator is fully random and not pseudo-random.
-
-*resistance:* [float] the resistance used in Multiplicative solver. Default value is 1.
+*current:* [float] the amount of unit current flows through the cells.
 
 *capacitance:* [float] the capacitance.
+
+*accumulation_delay:* [float] The amount of accumulation delay present. The value represent the fraction of the time constant between two coupling nodes.
+
+*broadcast_delay:* [float] The same as accumulation delay, but now in the boradcast dimension.
+
+*delay_offset:* [float] Amount of delay due to the comparator as a fraction of the time constant.
+
+<!-- *sigma_J:* [float] the amount of standard deviation present in the mismatch of the coupling unit. When -1 this is disabled in the simulation.  -->
 
 *ode_choice:* [str] which ODE solver to perform the simulation with. Currently RK (Runge-Kutta 4) and FE (Forward Euler) are implemented.
 
@@ -87,6 +97,10 @@ The config file is written in YAML. It must has the following parameters:
 
 *do_flipping:* [bool] Whether to perform the flipping.
 
+*resistance:* [float] the resistance used in Multiplicative solver. Default value is 1.
+
+*capacitance:* [float] the capacitance.
+
 **Parameters for SB (bSB/dSB) solver**
 
 *dtSB:* [float] the time step used in the Simulated Bifurcation solvers (dSB and bSB).
@@ -99,6 +113,8 @@ The config file is written in YAML. It must has the following parameters:
 *dtCIM*: [float] the time step used to simulate the equations.
 
 *zeta*: [float] the parameter used for displacement.
+
+*seed:* [positive int] The seed used for random number generation.
 
 ## Following parameters are required only when the targeted benchmark is TSP.
 
@@ -148,6 +164,10 @@ Besides, the following parameters will be added within returned ans:
 
 *original_required_int_precision:* [int] the J precision required in the Ising model without quantization (h is not quantized).
 
+**If MismatchStage is used, the following parameter is required:**
+
+*mismatch_std:* [float] the standard deviation present in the model. When 0.0, the mismatch is automatically turned off.
+
 **If DummyCreatorStage is used, the following parameters are required:**
 
 *dummy_creator*: [bool] if turn on the dummy creation stage.
@@ -166,7 +186,13 @@ Besides, the following parameters will be added within returned ans:
 
 *dummy_case_num*: [int] the amount of dummy input testcases to generate.
 
-**If dummy MaxCut/TSP/ATSP is to be generated, these paramters are required:**
+**If dummy MaxCut is to be generated, these parameters are required:**
+
+*dummy_quadratic:* [bool] whether to generate a problem with only 1 global optimum.
+
+*dummy_local_optima:* [bool] whether there are local optima in the dummy problem.
+
+**If dummy MaxCut/TSP/ATSP is to be generated, these parameters are required:**
 
 *dummy_size*: [int] the amount of nodes (cities in TSP/ATSP).
 

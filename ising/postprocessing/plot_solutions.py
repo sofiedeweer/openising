@@ -53,14 +53,14 @@ def plot_state_continuous(logfile:pathlib.Path, figName:str, save:bool=True, sav
                                               Defaults to '.'.
     """
     solver = return_metadata(logfile, 'solver')
-    # num_iterations = return_metadata(logfile, 'num_iterations')
     state_name = {"BRIM": "voltages", "Multiplicative": "voltages", "dSB": "positions", "bSB": "positions"}
     states = return_data(logfile, state_name[solver] if solver in state_name else "voltages")
+    time = return_data(logfile, "time")
 
     plt.figure()
-    plt.plot(states)
+    plt.plot(time, states)
     plt.axhline(y=0, color='k', linestyle='--')
-    plt.xlabel('Iteration')
+    plt.xlabel('Time [s]')
     plt.ylabel('continuous state')
     if save:
         plt.savefig(save_folder / f"{figName}.pdf")

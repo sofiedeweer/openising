@@ -74,22 +74,22 @@ class SimulationStage(Stage):
         optim_energy_collect = {solver: [] for solver in self.config.solvers}
         comp_time_collect = {solver: [] for solver in self.config.solvers}
         operation_count = {solver: -1 for solver in self.config.solvers}
-
+        initialization_state_collect = []
         logfile_collect = []
         if self.config.use_multiprocessing:
             runs_over = nb_runs - runs_per_thread * nb_cores
             tasks = [
-                (runs_per_thread + 1, logpath, i, i * (runs_per_thread + 1))
+                (runs_per_thread + 1, logpath, self.config.initialization_seed + i, i * (runs_per_thread + 1))
                 if i < runs_over
                 else (
                     runs_per_thread,
                     logpath,
-                    i,
+                    self.config.initialization_seed + i,
                     runs_over * (runs_per_thread + 1) + (i - runs_over) * runs_per_thread,
                 )
                 for i in range(nb_cores)
             ]
-            with multiprocessing.Pool(nb_cores, initializer=os.nice, initargs=(1,)) as pool:
+            with multiprocessing.Pool(nb_cores, initializer=os.nice, initargs=(5,)) as pool:
                 results = pool.starmap(self.partial_runs, tasks)
         else:
             results = self.partial_runs(nb_runs, logpath, 0)
@@ -105,6 +105,7 @@ class SimulationStage(Stage):
                 comp_time_collect[solver] += res[2][solver]
                 operation_count[solver] = res[3][solver]
             logfile_collect += res[4]
+            initialization_state_collect += res[5]
 
         ans = Ans(
             benchmark=self.benchmark_abbreviation,
@@ -116,6 +117,7 @@ class SimulationStage(Stage):
             computation_time=comp_time_collect,
             operation_count=operation_count,
             logfiles=logfile_collect,
+            initialization_states = initialization_state_collect,
         )
         debug_info = Ans()  # Placeholder for debug information, if needed
 
@@ -124,28 +126,28 @@ class SimulationStage(Stage):
     def partial_runs(self, nb_runs: int, logpath: pathlib.Path, initialization_seed: int, start_run_id: int = 0):
         start_time = datetime.datetime.now()
         LOGGER.info(f"Simulation started at {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        num_iter = self.config.iter_list
-        hyperparameters = parse_hyperparameters(self.config, num_iter)
+        hyperparameters = parse_hyperparameters(self.config)
 
         optim_state_collect = {solver: [] for solver in self.config.solvers}
         optim_energy_collect = {solver: [] for solver in self.config.solvers}
         comp_time_collect = {solver: [] for solver in self.config.solvers}
         nb_operations_collect = {solver: -1 for solver in self.config.solvers}
+        initialization_state_collect = []
         logfile_collect = []
         pbar = tqdm.tqdm(range(nb_runs), ascii="░▒█", desc=f"Running trials of thread {os.getpid()}")
         for trail_id in pbar:
             # Set the seed for flipping mechanism
             if self.config.seed > 0:
-                hyperparameters["seed"] = trail_id + 1 + int(self.config.seed)
+                hyperparameters["seed"] = start_run_id + trail_id + int(self.config.seed)
             self.kwargs["config"] = self.config
             self.kwargs["ising_model"] = self.ising_model
             self.kwargs["trail_id"] = trail_id
             if len(self.list_of_callables) >= 1:
+                self.kwargs["initialization_seed"] = initialization_seed + start_run_id + trail_id
                 sub_stage = self.list_of_callables[0](self.list_of_callables[1:], **self.kwargs)
                 initial_state, _ = sub_stage.run()
             else:
                 initial_state = np.random.uniform(-1, 1, (self.ising_model.num_variables,))
-
             for solver in self.config.solvers:
                 if self.gen_logfile and self.benchmark_abbreviation != "MIMO":
                     logfile = (
@@ -158,26 +160,33 @@ class SimulationStage(Stage):
                     logfile = None
 
                 optim_state, optim_energy, computation_time, nb_operations = self.run_solver(
-                    solver, num_iter, initial_state, self.ising_model, logfile, **hyperparameters
+                    solver, initial_state, self.ising_model, logfile, **hyperparameters
                 )
-
                 optim_state_collect[solver].append(optim_state)
                 optim_energy_collect[solver].append(optim_energy)
                 comp_time_collect[solver].append(computation_time)
                 nb_operations_collect[solver] = nb_operations
                 logfile_collect.append(logfile)
+            initialization_state_collect.append(initial_state)
+
             pbar.set_description(
                 f"Running trails of thread {os.getpid()} [#{trail_id + 1}, energy: {optim_energy:.2f}]"
             )
         end_time = datetime.datetime.now()
         LOGGER.info(f"Simulation of thread {os.getpid()} finished at {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
         LOGGER.info(f"Thread {os.getpid()} simulation time: {end_time - start_time}")
-        return optim_state_collect, optim_energy_collect, comp_time_collect, nb_operations_collect, logfile_collect
+        return (
+            optim_state_collect,
+            optim_energy_collect,
+            comp_time_collect,
+            nb_operations_collect,
+            logfile_collect,
+            initialization_state_collect,
+        )
 
     def run_solver(
         self,
         solver: str,
-        num_iter: int,
         s_init: np.ndarray,
         model: IsingModel,
         logfile: pathlib.Path | None = None,
@@ -186,7 +195,6 @@ class SimulationStage(Stage):
         """! Solves the given problem with the specified solver.
 
         @param solver: The solver to use
-        @param num_iter: The number of iterations to run the solver
         @param s_init: Initial state for the solver
         @param model: The Ising model to use for the solver
         @param logfile: Path to the logfile to store data. Defaults to None.
@@ -199,39 +207,39 @@ class SimulationStage(Stage):
         solvers = {
             "BRIM": (
                 BRIM().solve,
-                [
-                    "dtBRIM",
-                    "capacitance",
-                    "resistance",
-                    "stop_criterion",
-                    "seed",
-                    "coupling_annealing",
-                    "do_flipping"
-                ],
+                ["dtBRIM", "capacitance", "resistance", "stop_criterion", "seed", "coupling_annealing", "do_flipping"],
             ),
             "Multiplicative": (
                 Multiplicative().solve,
                 [
                     "dtMult",
                     "seed",
+                    "current",
                     "capacitance",
-                    "resistance",
                     "nb_flipping",
                     "cluster_threshold",
                     "init_cluster_size",
                     "end_cluster_size",
                     "exponent",
                     "cluster_choice",
-                    "pseudo_length",
                     "ode_choice",
+                    "stop_criterion",
+                    "accumulation_delay",
+                    "broadcast_delay",
+                    "delay_offset",
+                    "sigma_J",
+                    "sigma_C",
                 ],
             ),
-            "inSituSA": (InSituSASolver().solve, ["initial_temp", "cooling_rate", "nb_flips", "seed"]),
-            "SA": (SASolver().solve, ["initial_temp", "cooling_rate", "seed"]),
-            "DSA": (DSASolver().solve, ["initial_temp", "cooling_rate", "seed"]),
-            "SCA": (SCA().solve, ["initial_temp", "cooling_rate", "q", "r_q", "seed"]),
-            "bSB": (ballisticSB().solve, ["c0", "dtSB", "a0"]),
-            "dSB": (discreteSB().solve, ["c0", "dtSB", "a0"]),
+            "inSituSA": (
+                InSituSASolver().solve,
+                ["initial_temp_inSituSA", "cooling_rate_inSituSA", "nb_flips", "seed"],
+            ),
+            "SA": (SASolver().solve, ["initial_temp", "cooling_rate_SA", "seed"]),
+            "DSA": (DSASolver().solve, ["initial_temp", "cooling_rate_SA", "seed"]),
+            "SCA": (SCA().solve, ["initial_temp", "cooling_rate_SCA", "q", "r_q", "seed"]),
+            "bSB": (ballisticSB().solve, ["c0", "dtSB", "a0", "seed"]),
+            "dSB": (discreteSB().solve, ["c0", "dtSB", "a0", "seed"]),
             "CIM": (CIMSolver().solve, ["dtCIM", "zeta", "seed"]),
         }
         if solver in solvers:
@@ -242,7 +250,9 @@ class SimulationStage(Stage):
             optim_state, optim_energy, computation_time, operation_count = func(
                 model=model,
                 initial_state=s_init,
-                num_iterations=num_iter,
+                num_iterations=hyperparameters[
+                    "num_iterations_" + solver if ((solver != "bSB") and (solver != "dSB")) else "num_iterations_SB"
+                ],
                 file=logfile,
                 **chosen_hyperparameters,
             )

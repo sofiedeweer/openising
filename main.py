@@ -19,7 +19,7 @@ logging.basicConfig(level=logging_level, format=logging_format, stream=sys.stdou
 
 # Input file directory
 problem_type = "Maxcut"  # Specify the problem type [Maxcut, TSP, ATSP, MIMO]
-config_path = "ising/inputs/config/config_K2000_results.yaml"
+config_path = "ising/inputs/config/example.yaml"
 
 # Run the Ising model simulation
 ans, debug_info = api.get_hamiltonian_energy(
@@ -32,28 +32,28 @@ ans, debug_info = api.get_hamiltonian_energy(
 output_file = Path(f"./simulation_summary_{ans.benchmark}.pkl")
 solvers = ans.config.solvers
 mean_computation_time = {solver: np.mean(ans.computation_time[solver]) for solver in solvers}
-comp_str = " ".join([f"{mean_computation_time[solver]:.4f}s" for solver in solvers])
+comp_str = " ".join([f"{mean_computation_time[solver]:.4e}s" for solver in solvers])
 solver_str = " ".join(solvers)
 operation_str = " ".join([f"{ans.operation_count[solver]}" for solver in solvers])
 if problem_type == "MIMO":
     logging.info("BER: %s", ans.BER)
-    BER_str = " ".join([str(ans.BER[solver]) for solver in solvers])
-    with Path.open(output_file, "a") as f:
-        f.write("\n")
-        f.write("=====================\n")
-        f.write(f"results of running {ans.benchmark} with {config_path.split('/')[-1]}:\n")
-        f.write(f"logfile discriminator: {ans.config.logfile_discrimination}\n")
-        f.write("=====================\n")
-        f.write("MIMO results:\n")
-        f.write(f"SNR|BER  {solver_str}\n")
-        f.write(f"{ans.SNR}|     {BER_str}\n")
-        f.write("\n")
-        f.write("=====================\n")
-        f.write("Simulation results:\n")
-        f.write(f"solver| {solver_str}\n")
-        f.write(f"computation time| {comp_str}\n")
-        f.write(f"operation count| {operation_str}\n")
-else:
+    if not ans.config.dummy_creator:
+        BER_str = " ".join([str(ans.BER[solver]) for solver in solvers])
+        with Path.open(output_file, "a") as f:
+            f.write("\n")
+            f.write("=====================\n")
+            f.write(f"results of running {ans.benchmark} with {config_path.split('/')[-1]}:\n")
+            f.write(f"logfile discriminator: {ans.config.logfile_discrimination}\n")
+            f.write("=====================\n")
+            f.write("MIMO results:\n")
+            f.write(f"SNR|BER  {solver_str}\n")
+            f.write(f"{ans.SNR}|     {BER_str}\n")
+            f.write("=====================\n")
+            f.write("Simulation results:\n")
+            f.write(f"solver| {solver_str}\n")
+            f.write(f"computation time| {comp_str}\n")
+            f.write(f"operation count| {operation_str}\n")
+elif not ans.config.dummy_creator:
     benchmark = ans.benchmark
     ising_energies = ans.energies
     best_found = ans.best_found
@@ -82,7 +82,7 @@ else:
         solver: 100 * np.abs(ising_energy_avg[solver] - best_found) / np.abs(best_found) for solver in solvers
     }
     approx_str = " ".join([f"{approximation[solver]:.2f}%" for solver in solvers])
-    tts_str = " ".join([f"{tts[solver]:.4f}s" for solver in solvers])
+    tts_str = " ".join([f"{tts[solver]:.4e}s" for solver in solvers])
     with Path.open(output_file, "a") as f:
         f.write("\n")
         f.write("=====================\n")

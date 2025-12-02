@@ -186,14 +186,17 @@ class MIMOParserStage(Stage):
             seed = int(time.time())
         np.random.seed(seed)
 
+        # Compute the received symbols
+        y = H @ x
+
         # Compute the amplitude of the noise
-        power_x = (np.abs(x)**2)
+        power_y = (np.abs(y)**2)
         SNR = 10 ** (SNR / 10)
-        var_noise = np.sqrt(np.mean(power_x) / SNR)
+        var_noise = np.sqrt(power_y / SNR)
         n = var_noise*(np.random.randn(ant_num) + 1j * np.random.randn(ant_num)) / (np.sqrt(2)) # noise
 
-        # Compute the received symbols
-        y = H @ x + n
+        y += n
+
         ytilde = np.block([np.real(y), np.imag(y)])
 
         Htilde = np.block([[np.real(H), -np.imag(H)], [np.imag(H), np.real(H)]])

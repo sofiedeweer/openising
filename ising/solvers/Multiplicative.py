@@ -1,14 +1,12 @@
 import numpy as np
 import pathlib
-from pylfsr import LFSR
-# from diffeqpy import ode
+from collections import deque
 
-# from ising.stages import LOGGER
+from ising.stages import LOGGER
 from ising.solvers.base import SolverBase
 from ising.stages.model.ising import IsingModel
 from ising.utils.HDF5Logger import HDF5Logger
 from ising.utils.numpy import triu_to_symm
-from ising.utils.numba_functions import dvdt_solver
 
 
 class Multiplicative(SolverBase):
@@ -19,61 +17,139 @@ class Multiplicative(SolverBase):
         self,
         dt: float,
         num_iterations: int,
-        resistance: float,
         capacitance: float,
+        current: float,
         stop_criterion: float,
-        coupling: np.ndarray,
+        coupling:np.ndarray,
+        # coupling_pos: np.ndarray,
+        # coupling_neg: np.ndarray,
+        voltage_delay_idx: np.ndarray | None = None,
     ):
         """!Set the parameters for the solver.
 
         @param dt (float): time step.
         @param num_iterations (int): the number of iterations.
-        @param resistance (float): the resistance of the system.
         @param capacitance (float): the capacitance of the system.
-        @param frozen_nodes (np.ndarray | None): the nodes that are frozen.
+        @param current (float): the unit current that flows through the cells.
         @param stop_criterion (float): the stopping criterion to stop the solver when the voltages stagnate.
+        @param coupling_pos (np.ndarray): the coupling matrix of the system for positive pushes.
+        @param coupling_neg (np.ndarray): the coupling matrix of the system for negative pushes.
+        @param voltage_delay_idx (np.ndarray|None): the matrix containing the delay indices for each voltage.
         """
         self.dt = np.float32(dt)
         self.num_iterations = num_iterations
-        self.resistance = np.float32(resistance)
         self.capacitance = np.float32(capacitance)
+        self.current = current
         self.stop_criterion = stop_criterion
-        self.coupling_d = coupling.astype(np.float32)
-        self.quarter = np.float32(0.25)
-        self.half = np.float32(0.5)
-        self.four = np.float32(4.0)
-        self.six = np.float32(6.0)
+        self.coupling = coupling.astype(np.float32)
+        # self.coupling_pos = coupling_pos.astype(np.float32)
+        # self.coupling_neg = coupling_neg.astype(np.float32)
+        self.voltage_delay_idx = voltage_delay_idx
 
-    def dvdt(
-        self,
-        t: float,
-        vt: np.ndarray,
-    ):
-        """Differential equations for the multiplicative BRIM model when flipping is involved.
+    def construct_voltage_delay(self, previous_states: np.ndarray) -> np.ndarray:
+        """!Generates a matrix of voltages taking into account what each voltage sees at the current time step.
 
-        Args:
-            t (float): time
-            vt (np.ndarray): current voltages
-            coupling (np.ndarray): coupling matrix J
+        @param previous_states (np.ndarray): deque containing all the previous states up to\
+                  accumulation_delay + broadcast_delay + 1 time steps.
+        @param previous_Voltages (np.ndarray|None): list containing all previous voltage matrices up to inter_delay
+             time steps.
 
-        Returns:
-            dv (np.ndarray): the change of the voltages
+        @return Voltages (np.ndarray): voltage matrix with all delays taken into account.
         """
-        return dvdt_solver(t, vt, self.coupling_d, np.int8(self.bias), self.capacitance)
+        Voltages = np.zeros(
+            (self.num_variables + int(self.bias), self.num_variables + int(self.bias)), dtype=np.float32
+        )
 
-    # def inner_loop_JL(
-    #     self, model: IsingModel, state: np.ndarray, logging: HDF5Logger | None = None
-    # ) -> tuple[np.ndarray, float, np.ndarray]:
-    #     tspan = (0.0, self.dt*self.num_iterations)
+        Voltages[: self.num_variables, : self.num_variables] = previous_states[
+            self.voltage_delay_idx, np.arange(self.num_variables)[:, None]
+        ]
+        if self.bias == 1:
+            Voltages[:, -1] = previous_states[0, :]
+            Voltages[-1, :] = 1.0
+        return Voltages
 
+    def inner_loop_discrete(
+        self,
+        model: IsingModel,
+        state: np.ndarray,
+        accumulation_delay: int,
+        broadcast_delay: int,
+        logging: HDF5Logger | None = None,
+    ) -> tuple[np.ndarray, float, np.ndarray]:
+        """!Simulates a discrete version of the hardware.
+
+        @param model (IsingModel): the model to solve.
+        @param state (np.ndarray): the initial state to start the simulation with.
+        @param accumulation_delay (int): Amount of accumulation delay.
+        @param broadcast_delay (int): Amount of broadcast delay.
+        @param logging (HDF5Logger|None): the logger to use when flipping is disabled.
+
+        @return spins (np.ndarray): the final spins of the system.
+        @return energy (float): the energy of the final state.
+        @return count (np.ndarray): the count of sign changes for every spin.
+        """
+        if logging is not None:
+            if logging.filename is not None:
+                logging.log(
+                    time=0.0,
+                    state=np.sign(state[: model.num_variables]),
+                    energy=model.evaluate(np.sign(state[: model.num_variables]).astype(np.float32)),
+                    voltages=state[: model.num_variables],
+                )
+
+        LOGGER.info(
+            f"Energy: {model.evaluate(np.sign(state[: model.num_variables]).astype(np.float32))},state:{np.sign(state)}"
+        )
+        i = 0
+        max_change = np.inf
+        previous_states = deque([np.sign(state) for _ in range(accumulation_delay + broadcast_delay + 1)])
+        while i < self.num_iterations and max_change > self.stop_criterion:
+            if accumulation_delay > 0 or broadcast_delay > 0:
+                Voltages = self.construct_voltage_delay(previous_states)
+                dv = np.diagonal(self.coupling @ Voltages).copy()
+            else:
+                dv = self.coupling @ np.sign(state)
+            if self.bias:
+                dv[-1] = 0.0
+
+            new_state = np.sign(dv)
+            if self.bias:
+                new_state[-1] = 1.0
+
+            previous_states.appendleft(np.sign(new_state))
+            previous_states.pop()
+            if logging is not None:
+                if logging.filename is not None:
+                    logging.log(
+                        time=i * self.dt,
+                        state=np.sign(new_state[: model.num_variables]),
+                        energy=model.evaluate(np.sign(new_state[: model.num_variables]).astype(np.float32)),
+                        voltages=new_state[: model.num_variables],
+                    )
+            if i > 0:
+                max_change = np.linalg.norm(new_state - state, ord=np.inf)
+            state = new_state.copy()
+            i += 1
+            LOGGER.info(
+                f"Energy: {model.evaluate(np.sign(state[: model.num_variables]).astype(np.float32))}, state:{state}"
+            )
+        return (
+            state[: model.num_variables],
+            model.evaluate(np.sign(state[: model.num_variables]).astype(np.float32)),
+        )
 
     def inner_loop_FE(
-        self, model: IsingModel, state: np.ndarray, logging: HDF5Logger | None = None
+        self,
+        model: IsingModel,
+        state: np.ndarray,
+        total_delay: int,
+        logging: HDF5Logger | None = None,
     ) -> tuple[np.ndarray, float, np.ndarray]:
         """! Simulates the hardware with the Forward Euler method.
 
         @param model (IsingModel): the model to solve.
         @param state (np.ndarray): the initial state to start the simulation.
+        @param total_delay (int): total delay present in the system.
         @param logging (HDF5Logger|None): the logger to use when flipping is disabled.
 
         @return sigma (np.ndarray): the final discrete state of the system.
@@ -83,96 +159,82 @@ class Multiplicative(SolverBase):
         # set up the simulation
         i = 0
         max_change = np.inf
+        norm_prev = np.linalg.norm(state, ord=np.inf)
 
         if logging is not None:
             logging.log(
+                time=0.0,
                 state=np.sign(state[: model.num_variables]),
                 energy=model.evaluate(np.sign(state[: model.num_variables]).astype(np.float32)),
-                voltages=state,
+                voltages=state[: model.num_variables],
             )
+
+        # Set up new voltages
         new_state = state.copy().astype(np.float32)
-        change_sign = np.zeros((model.num_variables + int(self.bias),), dtype=bool)
-        dv = self.coupling_d @ np.sign(state)
-        norm_prev = np.linalg.norm(state, ord=np.inf)
+
+        # States needed for delay calculation. The newest state is always appended to the end of the list.
+        previous_states = np.array([np.sign(state) for _ in range(total_delay + 1)])
+        counter = total_delay + 1
+        # if self.mismatch:
+        #     dv_pos = self.coupling_pos @ np.sign(state)
+        #     dv_neg = self.coupling_neg @ np.sign(state)
+        #     dv = np.where(dv_pos > 0, dv_pos, dv_neg)
+        # else:
+        #     dv = self.coupling_pos @ np.sign(state)
+        dv = self.coupling @ np.sign(state) * self.current / self.capacitance
         while i < self.num_iterations and max_change > self.stop_criterion:
+            if counter < total_delay + 1:
+                # if self.mismatch:
+                    # if total_delay > 0:  # mismatch and delay present
+                    #     # TODO: debug calculation
+                    #     Voltages = self.construct_voltage_delay(previous_states)
+                    #     dv_pos = np.diagonal(self.coupling_pos * Voltages).copy()
+                    #     dv_neg = np.diagonal(self.coupling_neg * Voltages).copy()
+                    #     dv = np.where(dv_pos > 0, dv_pos, dv_neg)
+                    # else:  # mismatch present
+                    #     dv_pos = self.coupling_pos * np.sign(state)
+                    #     dv_neg = self.coupling_neg * np.sign(state)
+                    #     dv_all = np.where(dv_pos > 0, dv_pos, dv_neg)
+                    #     dv = np.sum(dv_all, axis=1)
+                # else:
+                #     if total_delay > 0:  # delay present
+                #         Voltages = self.construct_voltage_delay(previous_states)
+                #         dv = np.diagonal(self.coupling_pos @ Voltages).copy()
+                #     else:  # no hardware imperfections
+                #         dv = self.coupling_pos @ np.sign(state)
+                if total_delay > 0:
+                    Voltages = self.construct_voltage_delay(previous_states)
+                    dv = np.diagonal(self.coupling @ Voltages).copy()
+                else:  # no hardware imperfections
+                    dv = self.coupling @ np.sign(state)
+                dv *= self.current / self.capacitance
+                counter += 1
+                if self.bias:
+                    dv[-1] = 0.0
+            new_state = np.clip(state + self.dt * dv, -1, 1)
 
-            new_state = state + self.dt * dv
-            new_state[-1] = 1.0 if self.bias == 1 else new_state[-1]
-            new_state = np.clip(new_state, -1.0, 1.0)
+            if np.max(np.sign(new_state) != np.sign(state)):
+                counter = 0
 
-            change_sign[:] = np.sign(new_state) != np.sign(state)
-            if np.max(change_sign):
-                dv[:] += 2 * self.coupling_d[:, change_sign] @ np.sign(new_state[change_sign])
-
-            if i > 0 and i % 1000:
-                diff = np.abs(new_state - state)
+            if i > 0 and (i % 10) == 0:
+                diff = np.abs(new_state - previous_states[-1])
+                norm_prev = np.linalg.norm(previous_states[-1])
                 max_change = np.max(diff) / (norm_prev if norm_prev != 0 else 1)
-                norm_prev = np.linalg.norm(new_state, ord=np.inf)
+
+            previous_states = np.block([[np.sign(new_state)], [previous_states]])[:-1, :]
             state = new_state.copy()
             i += 1
             if logging is not None:
                 logging.log(
+                    time=i * self.dt,
                     state=np.sign(new_state[: model.num_variables]),
                     energy=model.evaluate(np.sign(new_state[: model.num_variables]).astype(np.float32)),
-                    voltages=new_state,
+                    voltages=new_state[: model.num_variables],
                 )
         return (
             np.sign(new_state[: model.num_variables]),
             model.evaluate(np.sign(new_state[: model.num_variables]).astype(np.float32)),
-            change_sign.astype(np.int32),
         )
-
-    def inner_loop_RK(
-        self, model: IsingModel, state: np.ndarray, logging: HDF5Logger | None = None
-    ) -> tuple[np.ndarray, float, np.ndarray]:
-        """! Simulates the hardware with a fourth order Runge-Kutta method.
-
-        @param model (IsingModel): the model to solve.
-        @param state (np.ndarray): the initial state to start the simulation.
-        @param logging (HDF5Logger|None): the logger to use when flipping is disabled.
-
-        @return sigma (np.ndarray): the final discrete state of the system.
-        @return energy (float): the final energy of the system.
-        @return count (np.ndarray): the count of sign flips for every node.
-        """
-
-        # Set up the simulation
-        i = 0
-        tk = np.float32(0.0)
-        max_change = np.inf
-
-        previous_voltages = state.astype(np.float32)
-
-        count = np.zeros((model.num_variables,))
-        norm_prev = np.linalg.norm(previous_voltages, ord=np.inf)
-        if logging is not None:
-            state = np.sign(previous_voltages[: model.num_variables])
-            energy = model.evaluate(state)
-            logging.log(state=state, energy=energy, voltages=previous_voltages)
-        while i < self.num_iterations and max_change > self.stop_criterion:
-            k1 = self.dt * self.dvdt(tk, previous_voltages)
-            k2 = self.dt * self.dvdt(tk + self.dt, previous_voltages + k1)
-            k3 = self.dt * self.dvdt(tk + self.half * self.dt, previous_voltages + self.quarter * (k1 + k2))
-
-            new_voltages = previous_voltages + (k1 + k2 + self.four * k3) / self.six
-            if logging is not None:
-                state = np.sign(new_voltages[: model.num_variables])
-                energy = model.evaluate(state)
-                logging.log(state=state, energy=energy, voltages=new_voltages)
-            tk += self.dt
-            i += 1
-
-            count += (previous_voltages[: model.num_variables] * new_voltages[: model.num_variables]) < 0
-
-            # Only compute norm if needed
-            if i > 0 and i % 1000:
-                diff = np.abs(new_voltages - previous_voltages)
-                max_change = np.max(diff) / (norm_prev if norm_prev != 0 else 1)
-                norm_prev = np.linalg.norm(new_voltages, ord=np.inf)
-            previous_voltages = new_voltages.copy()
-
-        energy = model.evaluate(np.sign(new_voltages[: model.num_variables], dtype=np.float32))
-        return np.sign(new_voltages[: model.num_variables]), energy, count
 
     def solve(
         self,
@@ -186,12 +248,15 @@ class Multiplicative(SolverBase):
         end_cluster_size: float,
         exponent: float = 3.0,
         cluster_choice: str = "random",
-        pseudo_length: int | None = None,
-        resistance: float = 1.0,
+        current: float = 1.0,
         capacitance: float = 1.0,
         seed: int = 0,
         stop_criterion: float = 1e-8,
-        ode_choice: str = "RK",
+        ode_choice: str = "FE",
+        accumulation_delay: float = 0.0,
+        broadcast_delay: float = 0.0,
+        delay_offset: float = 0.0,
+        # sigma_J: float = -1.0,
         file: pathlib.Path | None = None,
     ) -> tuple[np.ndarray, float]:
         """!Solves the given problem using a multiplicative coupling scheme.
@@ -207,14 +272,17 @@ class Multiplicative(SolverBase):
         @param exponent (float): the exponent for the exponential decrease of the cluster size.
         @param cluster_choice (str): the choice of clustering method.
         @param pseudo_length (int | None): the sequence length of the pseudo-random number generator.
-        @param resistance (float): the resistance of the system.
+        @param current (float): the current flowing through a coupling unit.
         @param capacitance (float): the capacitance of the system.
         @param seed (int): the seed for random number generation.
         @param stop_criterion (float): the stopping criterion to stop the solver when the voltages don't change
         @param ode_choice (str): the choice of ODE solver.
+        @param accumulation_delay (float): the amount of accumulation delay in percentage of C/I value.
+        @param broadcast_delay (float): the amount of broadcast delay in percentage of C/I value.
+        @param delay_offset (float): amount of delay due to the comparator, which offsets all the delays.
+        @param sigma_J (float): the standard deviation of mismatch in the coupling.
         @param file: (pathlib.Path,None): the path to the logfile
 
-        Returns:
         @return state (np.ndarray): the final state of the system.
         @return energy (float): best energy of the system.
         @return computation_time (float): total computation time for analog simulation.
@@ -230,9 +298,49 @@ class Multiplicative(SolverBase):
             self.bias = np.int8(0)
 
         # Ensure the mean and variance of J are reasonable
-        alpha = 1.0
-        coupling = alpha * triu_to_symm(new_model.J) * 1 / resistance
+        coupling = triu_to_symm(new_model.J)
+        # if sigma_J != -1.0:
+        #     self.mismatch = True
+        #     coupling_pos = coupling * (1 + np.random.normal(0.0, sigma_J, coupling.shape))
+        #     coupling_neg = coupling * (1 + np.random.normal(0.0, sigma_J, coupling.shape))
+        # else:
+        #     self.mismatch = False
+        #     coupling_pos = coupling
+        #     coupling_neg = coupling
         self.num_variables = model.num_variables
+
+        dtMult = 0.1 * capacitance / (current * np.max(np.abs(np.sum(coupling, axis=1))))
+
+
+        capacitance_delay = capacitance / model.num_variables
+        LOGGER.info(f"Delay capacitance: {capacitance_delay:.4e} F")
+
+        time_constant = capacitance_delay / current
+        LOGGER.info(f"Adjusted time step to {dtMult:.4e} for stability.")
+        if accumulation_delay > 0.0 and accumulation_delay * time_constant < dtMult:
+            dtMult = accumulation_delay * time_constant
+            num_iterations = int(np.ceil(num_iterations * (dtMult / (accumulation_delay * time_constant))))
+        if broadcast_delay > 0.0 and broadcast_delay * time_constant < dtMult:
+            dtMult = broadcast_delay * time_constant
+            num_iterations = int(np.ceil(num_iterations * (dtMult / (broadcast_delay * time_constant))))
+        if delay_offset > 0.0 and delay_offset * time_constant < dtMult:
+            dtMult = delay_offset * time_constant
+            num_iterations = int(np.ceil(num_iterations * (dtMult / (delay_offset * time_constant))))
+
+        accumulation_delay = int(accumulation_delay * time_constant / dtMult)
+        broadcast_delay = int(broadcast_delay * time_constant / dtMult)
+        delay_offset = int(delay_offset * time_constant / dtMult)
+
+        total_delay = (self.num_variables - 1) * (accumulation_delay + broadcast_delay) + delay_offset
+        LOGGER.info(f"Total delay in system: {total_delay} time steps.")
+
+        if accumulation_delay > 0 or broadcast_delay > 0 or delay_offset > 0:
+            voltage_delay_idx = np.zeros((self.num_variables, self.num_variables), dtype=np.int8)
+            for i in range(self.num_variables):
+                for j in range(self.num_variables):
+                    voltage_delay_idx[i, j] = (
+                        np.floor(np.abs(i - j) * (accumulation_delay + broadcast_delay)) + delay_offset
+                    )
 
         # Set the parameters for easy calling
         init_size = int(init_cluster_size * model.num_variables)
@@ -240,45 +348,22 @@ class Multiplicative(SolverBase):
         self.set_params(
             dtMult,
             num_iterations,
-            resistance,
             capacitance,
+            current,
             stop_criterion,
             coupling,
+            # coupling_pos,
+            # coupling_neg,
+            voltage_delay_idx=voltage_delay_idx if (total_delay > 0) else None,
         )
 
         # make sure the correct random seed is used
         np.random.seed(seed)
-        if pseudo_length is not None:
-            degree = int(np.log2(pseudo_length + 1))
-            if degree not in range(1, 13):
-                raise ValueError("pseudo_length should be of the form 2^n-1 with n an integer between 1 and 12.")
-            fpoly = [degree]
-            if degree == 5:
-                fpoly.append(2)
-            elif degree == 8:
-                fpoly += [7, 2, 1]
-            elif degree == 9:
-                fpoly.append(4)
-            elif degree == 10:
-                fpoly.append(3)
-            elif degree == 11:
-                fpoly.append(2)
-            elif degree == 12:
-                fpoly += [6, 4, 1]
-            else:
-                fpoly.append(1)
-            initstate = np.random.choice([0, 1], size=(degree,))
-            self.generator = LFSR(fpoly=fpoly, initstate=initstate).runKCycle
-            nb_bits = int(np.log2(self.num_variables) + 1)
-        else:
-            self.generator = np.random.choice
-            nb_bits = -1
-            pseudo_length = -1
+        self.generator = np.random.choice
 
         # Set up the bias node and add noise to the initial voltages
-        num_var = model.num_variables
         if self.bias:
-            v = np.empty(num_var + 1, dtype=np.float32)
+            v = np.empty(self.num_variables + 1, dtype=np.float32)
             v[:-1] = initial_state
             v[-1] = 1.0
         else:
@@ -287,14 +372,16 @@ class Multiplicative(SolverBase):
         # Schema for logging
         if nb_flipping == 1:
             schema = {
+                "time": np.float32,
                 "energy": np.float32,
-                "state": (np.int8, (num_var,)),
-                "voltages": (np.float32, (num_var + int(self.bias),)),
+                "state": (np.int8, (self.num_variables,)),
+                "voltages": (np.float32, (self.num_variables,)),
             }
         else:
             schema = {
                 "energy": np.float32,
-                "state": (np.int8, (num_var,)),
+                "state": (np.int8, (self.num_variables,)),
+                "cluster": (np.int32, (model.num_variables,)),
             }
 
         # Define cluster function
@@ -309,27 +396,22 @@ class Multiplicative(SolverBase):
         elif cluster_choice == "weighted_mean_largest":
             find_cluster = self.find_cluster_weighted_mean
             choice = "largest"
-        elif cluster_choice == "frequency":
-            find_cluster = self.find_cluster_frequency
         else:
             raise ValueError(
                 f" Unknown cluster choice: {cluster_choice}. \
-             Currently supported: random, gradient, weighted_mean_smallest, weighted_mean_largest, frequency."
+             Currently supported: random, gradient, weighted_mean_smallest, weighted_mean_largest."
             )
         additional_information = {
-            "count": np.ndarray,
             "current_state": np.ndarray,
             "cluster_threshold": cluster_threshold,
             "optimal_points": [],
             "choice": choice,
-            "pseudo_length": pseudo_length,
-            "nb_bits": nb_bits,
         }
 
-        if ode_choice == "RK":
-            inner_loop = self.inner_loop_RK
-        elif ode_choice == "FE":
+        if ode_choice == "FE":
             inner_loop = self.inner_loop_FE
+        elif ode_choice == "discrete":
+            inner_loop = self.inner_loop_discrete
         else:
             raise ValueError(f"Unknown ODE choice: {ode_choice}.")
 
@@ -341,7 +423,6 @@ class Multiplicative(SolverBase):
                     model=model,
                     num_iterations=num_iterations,
                     time_step=dtMult,
-                    pseudo_length=pseudo_length,
                     cluster_choice=cluster_choice,
                     exponent=exponent,
                 )
@@ -352,19 +433,26 @@ class Multiplicative(SolverBase):
             else:
                 logging = None
 
+            counter = 0  # Counter for no improvement
+            restart = 0  # When counter reaches threshold, size of cluster is reset with restart = it
             for it in range(nb_flipping):
-                sample, energy, count = inner_loop(model, v, logging)
-                additional_information["count"] = count
+                sample, energy = inner_loop(model, v, total_delay, logging)
                 additional_information["current_state"] = sample
 
                 if energy < best_energy:
                     best_energy = energy
                     best_sample = sample.copy()
                     additional_information["optimal_points"].append((best_sample.copy(), best_energy))
+                    counter = 0
+                else:
+                    counter += 1
 
+                # if counter >= int(nb_flipping / 4):
+                #     restart = int(it / 2)
+                #     counter = 0
                 cluster = find_cluster(
                     self.size_function(
-                        iteration=it,
+                        iteration=it - restart,
                         total_iterations=nb_flipping + int(nb_flipping == 1),
                         init_size=init_size,
                         end_size=end_size,
@@ -379,10 +467,11 @@ class Multiplicative(SolverBase):
 
                 # Log everything
                 if log.filename is not None and nb_flipping > 1:
-                    if nb_flipping > 1:
-                        log.log(energy=best_energy, state=best_sample)
-                    else:
-                        log.log(energy=best_energy, state=best_sample, voltages=best_sample)
+                    log.log(
+                        energy=best_energy,
+                        state=best_sample,
+                        cluster=np.block([cluster, -np.ones((self.num_variables - len(cluster),), dtype=np.int32)]),
+                    )
 
             if log.filename is not None:
                 log.write_metadata(
@@ -432,22 +521,7 @@ class Multiplicative(SolverBase):
         Args:
             cluster_size (int): the size of the cluster to find.
         """
-        if additional_information["pseudo_length"] == -1:
-            cluster = self.generator(np.arange(self.num_variables), size=(cluster_size,), replace=False)
-        else:
-            cluster = set()
-            while len(cluster) < cluster_size:
-                nb_bits = (cluster_size - len(cluster)) * additional_information["nb_bits"]
-                seq = np.array(self.generator(nb_bits)).reshape(
-                    (cluster_size - len(cluster), additional_information["nb_bits"])
-                )
-                # LOGGER.info(cluster)
-                for row in seq:
-                    str_bin = np.array2string(row, separator="")[1:-1]
-                    node = int(str_bin, 2) % self.num_variables
-                    cluster.add(node)
-            cluster = np.array(list(cluster))
-
+        cluster = self.generator(np.arange(self.num_variables), size=(cluster_size,), replace=False)
         return cluster
 
     def find_cluster_weighted_mean(self, cluster_size: int, **additional_information) -> np.ndarray:
@@ -474,28 +548,4 @@ class Multiplicative(SolverBase):
                 chosen_nodes = np.random.choice(ind_unavailable_nodes, (cluster_size - current_size,), replace=False)
                 available_nodes = np.append(available_nodes, chosen_nodes)
         cluster = np.random.choice(available_nodes, size=(cluster_size,), replace=False)
-        return cluster
-
-    def find_cluster_frequency(self, cluster_size: int, **additional_information) -> np.ndarray:
-        """Finds the cluster of nodes to flip. These nodes are chosen based on the frequency of flipping.
-
-        Args:
-            counts (np.ndarray): the amount of times each node changed their sign during convergence.
-            cluster_size (int): the size of the cluster to find.
-            cluster_threshold (float): the threshold for selecting nodes.
-        """
-        counts = additional_information["counts"]
-        cluster_threshold = additional_information["cluster_threshold"]
-
-        freq = counts / (np.max(np.abs(counts)) if np.max(np.abs(counts)) != 0 else 1)
-
-        available_nodes = np.where(freq < cluster_threshold)[0]
-        current_size = len(available_nodes)
-        if len(available_nodes) < cluster_size:
-            ind_unavailable_nodes = np.where(freq >= cluster_threshold)[0]
-            chosen_nodes = np.random.choice(ind_unavailable_nodes, (cluster_size - current_size,), replace=False)
-            available_nodes = np.append(available_nodes, chosen_nodes)
-            cluster = available_nodes
-        else:
-            cluster = np.random.choice(available_nodes, size=(cluster_size,), replace=False)
         return cluster

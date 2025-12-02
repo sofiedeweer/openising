@@ -216,7 +216,7 @@ def plot_energy_time(
         save_folder (pathlib.Path, optional): where to save the figure. Defaults to ".".
         figName (str, optional): the name of the figure to save. Defaults to "energy_time".
     """
-    time = return_data(logfile, "time_clock")
+    time = return_data(logfile, "time")
     energy = return_data(logfile, "energy")
 
     plt.figure()
@@ -247,7 +247,7 @@ def plot_energy_time_multiple(
         save_folder (pathlib.Path, optional): _description_. Defaults to '.'.
         figName (str, optional): _description_. Defaults to "energy_time".
     """
-    data = get_metadata_from_logfiles(logfiles, x_data="total_time", y_data="solution_energy")
+    data = get_data_from_logfiles(logfiles, x_data="time", y_data="energy")
     avg_energies, min_energies, max_energies, x_data = compute_averages_energies(data)
 
     plt.figure()

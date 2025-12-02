@@ -3,7 +3,9 @@
 #################################
 
 # Benchmark file name
-benchmark: ./ising/benchmarks/MIMO/user5_ant5_M16.txt
+benchmark: 
+  - ./ising/benchmarks/MIMO/user5_ant5_M16.txt
+  - ./ising/benchmarks/MIMO/user5_ant5_M16.txt
 
 # Solver to use: [BRIM, SA, DSA, inSituSA, bSB, dSB, SCA, Multiplicative, CIM, all]
 solvers:
@@ -36,7 +38,10 @@ logfile_discrimination: None
 num_iterations_SA: 1
 T: 50.0
 T_final: 0.05
-seed: 100
+seed: 
+  - 100
+  - 200
+  - 300
 
 # Parameters for SCA
 num_iterations_SCA: 1
@@ -114,9 +119,6 @@ offset_ratio: 0.3
 # Parameters for noise stage
 device_noise: False
 noise_level: 0.1
-
-# Parameters for mismatch stage
-mismatch_std: 0.0
 
 #################################
 ## Dummy creator hyperparameters

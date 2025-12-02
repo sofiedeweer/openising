@@ -6,6 +6,7 @@ from ising.stages.main_stage import MainStage
 from ising.stages.dummy_creator_stage import DummyCreatorStage
 from ising.stages.config_parser_stage import ConfigParserStage
 from ising.stages.maxcut_parser_stage import MaxcutParserStage
+from ising.stages.biqmac_parser_stage import BiqMacParserStage
 from ising.stages.tsp_parser_stage import TSPParserStage
 from ising.stages.atsp_parser_stage import ATSPParserStage
 from ising.stages.mimo_parser_stage import MIMOParserStage
@@ -15,7 +16,8 @@ from ising.stages.tsp_energy_calc_stage import TSPEnergyCalcStage
 from ising.stages.simulation_stage import SimulationStage
 from ising.stages.initialization_stage import InitializationStage
 from ising.stages.quantization_stage import QuantizationStage
-from ising.stages.npmos_stage import NpmosStage
+from ising.stages.mismatch_stage import MismatchStage
+# from ising.stages.npmos_stage import NpmosStage
 
 def get_hamiltonian_energy(
     create_dummy_problem: bool = False,
@@ -46,6 +48,8 @@ def get_hamiltonian_energy(
         parser_stage = MIMOParserStage
     elif problem_type == "QKP":
         parser_stage = QKPParserStage
+    elif problem_type == "Biqmac":
+        parser_stage = BiqMacParserStage
     else:
         logging.error(f"Parser for {problem_type} is not implemented.")
         raise NotImplementedError(f"Parser for {problem_type} is not implemented.")
@@ -64,8 +68,9 @@ def get_hamiltonian_energy(
         DummyCreatorStage,  # Creates a dummy Ising model if needed
         parser_stage,  # Parses the specific problem into an Ising graph model
         energy_calc_stage,  # Calculates the energy for the problems
-        NpmosStage,  # Injects NMOS/PMOS imbalance if needed
+        # NpmosStage,  # Injects NMOS/PMOS imbalance if needed
         QuantizationStage,  # Quantizes the Ising model if needed
+        MismatchStage, # Injects mismatch into the Ising model
         SimulationStage,  # Runs the simulation on the Ising model
         InitializationStage,  # Initializes the Ising spins and model
     ]

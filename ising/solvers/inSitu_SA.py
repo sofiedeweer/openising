@@ -19,8 +19,8 @@ class InSituSASolver(SolverBase):
         model: IsingModel,
         initial_state: np.ndarray,
         num_iterations: int,
-        initial_temp: float,
-        cooling_rate: float,
+        initial_temp_inSituSA: float,
+        cooling_rate_inSituSA: float,
         nb_flips: float,
         seed: int | None = None,
         file: pathlib.Path | None = None,
@@ -40,6 +40,8 @@ class InSituSASolver(SolverBase):
         @return state: The final state of the system.
         @return energy: optimal energy the solver reaches.
         """
+        if nb_flips == -1:
+            nb_flips = 2/model.num_variables
 
         # seed the random number generator. Use a timestamp-based seed if non is provided.
         if seed is None:
@@ -63,8 +65,8 @@ class InSituSASolver(SolverBase):
                     model_name=self.name,
                     problem_size=model.num_variables,
                     num_iterations=num_iterations,
-                    initial_temp=initial_temp,
-                    cooling_rate=cooling_rate,
+                    initial_temp=initial_temp_inSituSA,
+                    cooling_rate=cooling_rate_inSituSA,
                     nb_flips=nb_flips,
                     seed=seed,
                 )
@@ -72,7 +74,7 @@ class InSituSASolver(SolverBase):
             start_time = time.time()
 
             # Setup initial state and energy
-            Temp = initial_temp
+            Temp = initial_temp_inSituSA
             state = np.sign(initial_state, dtype=np.float32)
             energy = model.evaluate(state)
             for _ in range(num_iterations):
@@ -105,7 +107,7 @@ class InSituSASolver(SolverBase):
                 if logger.filename is not None:
                     logger.log(energy=model.evaluate(state), state=state)
                 # Decrease the temperature
-                Temp *= cooling_rate
+                Temp *= cooling_rate_inSituSA
 
             end_time = time.time()
             nb_operations = num_iterations * (
