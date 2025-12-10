@@ -68,6 +68,7 @@ for i, problem in enumerate(problem_type):
         if problem == "MIMO":
             for _ in range(config["nb_trials"]):
                 energies_base_solver.append(ans_base.MIMO[_].lowest_energy[solver])
+            best_found = 0.0
         else:
             best_found = ans_base.best_found
             energies_base_solver = ans_base.energies[solver]
@@ -94,7 +95,7 @@ for i, problem in enumerate(problem_type):
         parameter_name = test_parameter.replace("_", " ")
         histogram_energies_loop(
             ans_data=ans,
-            base_ans=ans_base,
+            ans_base=ans_base,
             parameter_values=parameter_values[test_parameter],
             parameter_name=parameter_name,
             problem=problem,
