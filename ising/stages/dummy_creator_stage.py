@@ -234,7 +234,7 @@ class DummyCreatorStage(Stage):
             sigma = sigma_phi[i]
             for m in range(ant_num):
                 for n in range(ant_num):
-                    d = np.abs(m-n)
+                    d = 0.5*(m-n)
                     C[m, n] = np.exp(2*np.pi*1j*d*np.sin(phi))* np.exp(
                         -((sigma)**2) / 2 * (2 * np.pi * d * np.cos(phi)) ** 2
                     )

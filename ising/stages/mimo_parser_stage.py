@@ -90,8 +90,8 @@ class MIMOParserStage(Stage):
             diff_imag_half = diff[solver][array_mid:, :]
             diff_of_users = np.hstack((diff_real_half, diff_imag_half))
             ans_all.ber_of_users[solver] = np.sum(np.abs(diff_of_users) / 2, axis=1) / (np.log2(M)*case_num)
-            ans_all.BER[solver] = np.mean(ans_all.ber_of_trials[solver])
-            ans_all.operation_count = ans.operation_count
+            ans_all.BER[solver] = np.mean(ans_all.ber_of_users[solver])
+        ans_all.operation_count = ans.operation_count
         ans_all.SNR = snr
         ans_all.benchmark = ans.benchmark
         ans_all.config = self.config
@@ -172,15 +172,15 @@ class MIMOParserStage(Stage):
         if is_bpsk:
             # BPSK scheme
             r = 1
-            Nx = np.shape(x)[0]
-            Ny = 2*Nx
+            num_variables = np.shape(x)[0]
+            num_symbols = 2*num_variables
         else:
             if is_hamming_encoding: # with hamming encoding
                 r = int(np.sqrt(M) - 1)
             else: # with binary encoding
                 r = int(np.ceil(np.log2(np.sqrt(M))))
-            Nx = np.shape(x)[0]*2
-            Ny = Nx
+            num_variables = np.shape(x)[0]*2
+            num_symbols = num_variables
 
         if seed == 0:
             seed = int(time.time())
@@ -190,36 +190,39 @@ class MIMOParserStage(Stage):
         y = H @ x
 
         # Compute the amplitude of the noise
-        power_y = (np.abs(y)**2)
-        SNR = 10 ** (SNR / 10)
-        var_noise = np.sqrt(power_y / SNR)
-        n = var_noise*(np.random.randn(ant_num) + 1j * np.random.randn(ant_num)) / (np.sqrt(2)) # noise
+        power_y = np.abs(y)**2
+        snr_real = 10 ** (SNR / 10)
+        # var_noise = np.sqrt(power_y / SNR)
+        n = (np.random.randn(ant_num) + 1j * np.random.randn(ant_num)) # noise
+        power_n = np.abs(n)**2
+        n *= np.sqrt((power_y / snr_real) / power_n) # take noise power into account
+
+        assert np.all(np.isclose(np.abs(y**2 / n**2) , snr_real))
 
         y += n
 
-        ytilde = np.block([np.real(y), np.imag(y)])
+        ytilde = np.block([np.real(y), np.imag(y)]) # 2*ant_num
 
-        Htilde = np.block([[np.real(H), -np.imag(H)], [np.imag(H), np.real(H)]])
+        Htilde = np.block([[np.real(H), -np.imag(H)], [np.imag(H), np.real(H)]]) # 2*ant_num x 2*user_num
 
         if is_hamming_encoding: # with hamming encoding
-            T = np.block([np.eye(Ny, Nx) for _ in range(r)])
+            T = np.block([np.eye(num_symbols, num_variables) for _ in range(r)])
         else: # with binary encoding
-            T = np.block([2**(r-i)*np.eye(Ny, Nx) for i in range(1, r+1)])
+            T = np.block([2**(r-i)*np.eye(num_symbols, num_variables) for i in range(1, r+1)])
 
         if is_bpsk:
             xtilde = x
         else:
             xtilde = np.block([np.real(x), np.imag(x)])
 
-        ones_end = np.eye(Ny, Nx) @ np.ones((Nx,))
-        constant = ytilde.T@ytilde - 2*ytilde.T @ Htilde @ (T@np.ones((r*Nx,)) - \
+        ones_end = np.ones((num_symbols,))
+        constant = ytilde.T@ytilde - 2*ytilde.T @ Htilde @ (T@np.ones((r*num_variables,)) - \
                                             (np.sqrt(M)-1)*ones_end)
 
-        bias = 2*(ytilde - Htilde@(T@np.ones((r*Nx,))-(np.sqrt(M)-1)*ones_end))
+        bias = 2*(ytilde - Htilde@(T@np.ones((r*num_variables,))-(np.sqrt(M)-1)*ones_end))
         bias = bias.T @ Htilde @ T
         coupling = -2*T.T @ Htilde.T @ Htilde @ T
-        diagonal = np.diag(coupling)
-        constant -= np.sum(diagonal)/2
+        constant -= np.sum(np.diag(coupling))/2
 
         coupling = np.triu(coupling, k=1)
         return IsingModel(coupling, bias, constant, name=f"MIMO_{SNR}"), xtilde, ytilde
