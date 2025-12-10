@@ -154,10 +154,13 @@ def return_c0(model: IsingModel) -> float:
     Returns:
         float: the c0 hyperaparameter.
     """
-    return 0.5 / (
-        np.sqrt(model.num_variables)
-        * np.sqrt(np.sum(np.power(model.J, 2)) / (model.num_variables * (model.num_variables - 1)))
+    denominator = np.sqrt(model.num_variables) * np.sqrt(
+        np.sum(np.power(model.J, 2)) / (model.num_variables * (model.num_variables - 1))
     )
+    if np.isclose(denominator, 0.0, atol=1e-12):
+        return 0.5
+    else:
+        return 0.5 / denominator
 
 
 def return_G(J: np.ndarray) -> float:

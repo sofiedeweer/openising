@@ -46,16 +46,19 @@ class QuantizationStage(Stage):
         if self.config.quantization:
             quantization_precision = self.config.quantization_precision
             original_J = self.ising_model.J
-            quantized_J = self.quantize_matrix(J=original_J,
-                                               original_precision=original_int_j_precision,
-                                               quantization_precision=quantization_precision)
-            quantized_h = self.quantize_matrix(J=self.ising_model.h,
-                                               original_precision=original_int_h_precision,
-                                               quantization_precision=quantization_precision)
+            quantized_J = self.quantize_matrix(
+                J=original_J, original_precision=original_int_j_precision, quantization_precision=quantization_precision
+            )
+            quantized_h = self.quantize_matrix(
+                J=self.ising_model.h,
+                original_precision=original_int_h_precision,
+                quantization_precision=quantization_precision,
+                scale=self.config.h_scale_factor if hasattr(self.config, "h_scale_factor") else 1.0,
+            )
             LOGGER.info(f"Quantization is enabled with precision: {quantization_precision}-bit.")
 
             quantized_model = IsingModel(
-                J=quantized_J,
+                J=np.triu(quantized_J, k=1),
                 h=quantized_h,
                 c=self.ising_model.c,
             )
@@ -116,7 +119,7 @@ class QuantizationStage(Stage):
             # from the minimum to the maximum value.
             # The range is (J_max - J_min), and we add 1 to ensure we cover the full range.
             # This is because we need to represent both positive and negative values.
-            original_precision = math.ceil(math.log2(abs(J_max - J_min) + 1))
+            original_precision = math.ceil(math.log2(abs(J_max - J_min)) + 1)
 
         # signed or unsigned representation
         is_unsigned = same_sign
@@ -124,12 +127,15 @@ class QuantizationStage(Stage):
         return original_precision, is_unsigned
 
     @staticmethod
-    def quantize_matrix(J: np.ndarray, original_precision: int, quantization_precision: int | float = 2) -> np.ndarray:
+    def quantize_matrix(
+        J: np.ndarray, original_precision: int, quantization_precision: int | float = 2, scale: float = 1.0
+    ) -> np.ndarray:
         """! Quantizes a matrix to a given precision.
 
         @param J: the input matrix
         @param original_precision: the original precision of the matrix
         @param quantization_precision: the precision for quantization
+        @param scale: the scaling factor for the matrix
 
         @return: a quantized matrix
         """
@@ -199,6 +205,13 @@ class QuantizationStage(Stage):
             f"Quantized J matrix has {len(np.unique(quantized_J))} unique values, "
             f"which exceeds the limit for"
             f"{quantization_precision}-bit quantization."
+        )
+        quantized_J = scale * quantized_J / step_size
+
+        LOGGER.info(
+            f"Quantization details for {'J matrix' if len(J.shape) == 2\
+            else 'h vector'}: original min value {J_min}, quantized min value {np.min(quantized_J)\
+            }, original max value {J_max}, quantized max value {np.max(quantized_J)}, scale factor {scale}"
         )
 
         return quantized_J
@@ -291,5 +304,5 @@ class QuantizationStage(Stage):
         plt.ylabel("Frequency", fontsize=12)
         plt.grid(axis="y", alpha=0.75)
         plt.tight_layout()
-        plt.savefig(output)
+        plt.savefig(output, bbox_inches="tight")
         plt.close()

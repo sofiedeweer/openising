@@ -379,9 +379,11 @@ class Multiplicative(SolverBase):
             }
         else:
             schema = {
+                "energy_best": np.float32,
                 "energy": np.float32,
-                "state": (np.int8, (self.num_variables,)),
-                "cluster": (np.int32, (model.num_variables,)),
+                "state_out": (np.int8, (self.num_variables,)),
+                "state_in": (np.int8, (self.num_variables,)),
+                "cluster": (np.int8, (model.num_variables,)),
             }
 
         # Define cluster function
@@ -426,6 +428,14 @@ class Multiplicative(SolverBase):
                     cluster_choice=cluster_choice,
                     exponent=exponent,
                 )
+                if nb_flipping > 1:
+                    log.log(
+                        energy_best = np.inf,
+                        energy = np.inf,
+                        state_in = np.sign(v[:model.num_variables]),
+                        state_out = np.zeros(model.num_variables, dtype=np.int8),
+                        cluster = np.zeros(model.num_variables, dtype=np.int8),
+                    )
             best_energy = np.inf
             best_sample = v[: model.num_variables].copy()
             if nb_flipping == 1:
@@ -468,9 +478,11 @@ class Multiplicative(SolverBase):
                 # Log everything
                 if log.filename is not None and nb_flipping > 1:
                     log.log(
-                        energy=best_energy,
-                        state=best_sample,
-                        cluster=np.block([cluster, -np.ones((self.num_variables - len(cluster),), dtype=np.int32)]),
+                        energy_best = best_energy,
+                        energy=energy,
+                        state_out=sample,
+                        state_in = best_sample,
+                        cluster= np.where(v[:model.num_variables] == best_sample, 0, 1).astype(np.int8),
                     )
 
             if log.filename is not None:
