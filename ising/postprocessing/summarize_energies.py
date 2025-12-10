@@ -159,8 +159,8 @@ def histogram_energies_loop(
         parameter_name (str): the name of the parameter.
         problem (str): the problem that was tested.
         best_found (float | None): the best found energy to plot as reference.
-        fig_name (str): _description_
-        save_folder (pathlib.Path): _description_
+        fig_name (str): name of the figure to save.
+        save_folder (pathlib.Path): folder where the figure needs to be saved.
     """
     solvers = ans_base.config.solvers
     for solver in solvers:
@@ -176,8 +176,8 @@ def histogram_energies_loop(
             bins=15,
             alpha=0.7,
             edgecolor="black",
-            label=f"Base run: best energy = {np.min(energies_base[solver]):.2f}, avg energy: {
-                np.mean(energies_base[solver]):.2f}",
+            label=f"Base run: best energy = {np.min(energies_base):.2f}, avg energy: {
+                np.mean(energies_base):.2f}",
         )
         for value in parameter_values:
             if problem == "MIMO":
