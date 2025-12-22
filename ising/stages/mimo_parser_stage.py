@@ -189,7 +189,7 @@ class MIMOParserStage(Stage):
         # Compute the received symbols
         y = H @ x
 
-        # Compute the amplitude of the noise
+        # Compute the amplitude of the noise on the received symbols
         power_y = np.abs(y)**2
         snr_real = 10 ** (SNR / 10)
         # var_noise = np.sqrt(power_y / SNR)

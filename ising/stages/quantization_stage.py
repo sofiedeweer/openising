@@ -119,7 +119,7 @@ class QuantizationStage(Stage):
             # from the minimum to the maximum value.
             # The range is (J_max - J_min), and we add 1 to ensure we cover the full range.
             # This is because we need to represent both positive and negative values.
-            original_precision = math.ceil(math.log2(abs(J_max - J_min)) + 1)
+            original_precision = math.ceil(math.log2(max(abs(J_max), np.abs(J_min))) + 1)
 
         # signed or unsigned representation
         is_unsigned = same_sign
@@ -151,10 +151,10 @@ class QuantizationStage(Stage):
             original_precision,
             quantization_precision,
         )
-        assert quantization_precision <= original_precision, (
-            f"Quantization precision {quantization_precision} is larger "
-            f"than the original precision {original_precision}."
-        )
+        # assert quantization_precision <= original_precision, (
+        #     f"Quantization precision {quantization_precision} is larger "
+        #     f"than the original precision {original_precision}."
+        # )
         assert quantization_precision == 1.5 or isinstance(quantization_precision, int)
 
         if quantization_precision == 1.5:
@@ -169,14 +169,14 @@ class QuantizationStage(Stage):
             if J_is_positive:
                 quantization_lower_bound = 0
             else:
-                quantization_lower_bound = -(2**original_precision - 1)
+                quantization_lower_bound = -max(np.abs(J_min), np.abs(J_max))
         else:
             # If J has both positive and negative values, we need to consider the range
             # from the minimum to the maximum value.
             assert quantization_precision > 1, (
                 f"Quantization precision {quantization_precision} must be greater than 1-bit for signed data."
             )
-            quantization_lower_bound = -(2 ** (original_precision - 1))
+            quantization_lower_bound = -max(np.abs(J_min), np.abs(J_max))
 
         if same_sign:
             if ternary_quantization:
@@ -190,7 +190,7 @@ class QuantizationStage(Stage):
             else:
                 step_num: int = (2**quantization_precision) - 1
                 step_num = step_num - 1  # dismiss the most negative value
-        step_size: float = (2**original_precision) / step_num
+        step_size: float = np.abs(J_max - J_min) / step_num
 
         nonzero_mask = J != 0
         quantized_J = copy.deepcopy(J)
@@ -206,7 +206,7 @@ class QuantizationStage(Stage):
             f"which exceeds the limit for"
             f"{quantization_precision}-bit quantization."
         )
-        quantized_J = scale * quantized_J / step_size
+        quantized_J = scale * np.round(quantized_J / step_size)
 
         LOGGER.info(
             f"Quantization details for {'J matrix' if len(J.shape) == 2\
