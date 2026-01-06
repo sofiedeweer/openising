@@ -53,7 +53,7 @@ The config file is written in YAML. It must has the following parameters:
 
 *T_final:* [float] final temperature, which should be lower than *T*, for the annealing solvers (in-Situ SA, SA and SCA).
 
-*nb_flips:* [float] The percentage of nodes that are allowed to flip each iteration.
+*nb_flips:* [int] The total amount of nodes that are allowed to flip each iteration.
 
 *seed:* [int] the seed used for random number generation. This is important to be able to recreate results.
 

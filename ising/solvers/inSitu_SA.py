@@ -21,7 +21,7 @@ class InSituSASolver(SolverBase):
         num_iterations: int,
         initial_temp_inSituSA: float,
         cooling_rate_inSituSA: float,
-        nb_flips: float,
+        nb_flips: int = -1,
         seed: int | None = None,
         file: pathlib.Path | None = None,
     ) -> tuple[np.ndarray, float]:
@@ -34,14 +34,14 @@ class InSituSASolver(SolverBase):
         @param initial_temp: Initial temperature for the annealing schedule.
         @param cooling_rate: Multiplicative factor applied to the temperature after each iteration.
         @param seed: Seed for the random number generator to ensure reproducibility.
-        @param nb_flips: percentage of total nodes that are flipped each iteration.
+        @param nb_flips: total amount of nodes that are flipped each iteration.
         @param file: Path to an HDF5 file for logging the optimization process. If `None`, no logging is performed.
 
         @return state: The final state of the system.
         @return energy: optimal energy the solver reaches.
         """
         if nb_flips == -1:
-            nb_flips = 2/model.num_variables
+            nb_flips = 2
 
         # seed the random number generator. Use a timestamp-based seed if non is provided.
         if seed is None:
@@ -49,7 +49,6 @@ class InSituSASolver(SolverBase):
         random.seed(seed)
 
         coupling = -(np.diag(model.h) + model.J + model.J.T)
-        nb_flips = int(nb_flips * model.num_variables)
 
         # Set up schema and metadata for logging
         schema = {

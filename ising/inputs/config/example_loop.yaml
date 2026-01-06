@@ -53,7 +53,7 @@ q_final: 10.0
 initial_temp_inSituSA: 690
 T_final_inSituSA: 0.5
 num_iterations_inSituSA: 1
-nb_flips: 0.5
+nb_flips: 1
 
 # Parameters for Multiplicative
 num_iterations_Multiplicative: 1
