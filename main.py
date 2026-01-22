@@ -10,6 +10,7 @@ os.environ["OPENBLAS_NUM_THREADS"] = str(4)
 
 import numpy as np
 from ising import api
+from ising.utils.flow import relative_to_best_found, approximation_to_best_found
 
 
 # Initialize the logger
@@ -64,7 +65,7 @@ elif not ans.config.dummy_creator:
     ising_energy_avg = {solver: np.mean(ising_energies[solver]) for solver in solvers}
     avg_en_str = " ".join([f"{ising_energy_avg[solver]:.4f}" for solver in solvers])
     relative_error = {
-        solver: np.abs(np.array(ising_energies[solver]) - best_found) / np.abs(best_found) for solver in solvers
+        solver: relative_to_best_found(np.array(ising_energies[solver]), best_found) for solver in solvers
     }
     tts = {
         solver: mean_computation_time[solver]
@@ -79,7 +80,7 @@ elif not ans.config.dummy_creator:
         for solver in solvers
     }
     approximation = {
-        solver: 100 * np.abs(ising_energy_avg[solver] - best_found) / np.abs(best_found) for solver in solvers
+        solver: approximation_to_best_found(np.array(ising_energies[solver]), best_found) for solver in solvers
     }
     approx_str = " ".join([f"{approximation[solver]:.2f}%" for solver in solvers])
     tts_str = " ".join([f"{tts[solver]:.4e}s" for solver in solvers])

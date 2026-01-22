@@ -44,16 +44,21 @@ class QuantizationStage(Stage):
             original_precision = max(original_int_j_precision, original_int_h_precision)
 
         if self.config.quantization:
+            scale_to_integer = self.config.scale_to_integer if hasattr(self.config, "scale_to_integer") else False
             quantization_precision = self.config.quantization_precision
             original_J = self.ising_model.J
             quantized_J = self.quantize_matrix(
-                J=original_J, original_precision=original_int_j_precision, quantization_precision=quantization_precision
+                J=original_J,
+                original_precision=original_int_j_precision,
+                quantization_precision=quantization_precision,
+                scale_to_integer=scale_to_integer,
             )
             quantized_h = self.quantize_matrix(
                 J=self.ising_model.h,
                 original_precision=original_int_h_precision,
                 quantization_precision=quantization_precision,
                 scale=self.config.h_scale_factor if hasattr(self.config, "h_scale_factor") else 1.0,
+                scale_to_integer=scale_to_integer,
             )
             LOGGER.info(f"Quantization is enabled with precision: {quantization_precision}-bit.")
 
@@ -128,7 +133,11 @@ class QuantizationStage(Stage):
 
     @staticmethod
     def quantize_matrix(
-        J: np.ndarray, original_precision: int, quantization_precision: int | float = 2, scale: float = 1.0
+        J: np.ndarray,
+        original_precision: int,
+        quantization_precision: int | float = 2,
+        scale: float = 1.0,
+        scale_to_integer: bool = False,
     ) -> np.ndarray:
         """! Quantizes a matrix to a given precision.
 
@@ -136,9 +145,11 @@ class QuantizationStage(Stage):
         @param original_precision: the original precision of the matrix
         @param quantization_precision: the precision for quantization
         @param scale: the scaling factor for the matrix
+        @param scale_to_integer: scale the values to the ones supported on chip
 
         @return: a quantized matrix
         """
+        # Scale J first, afterwards scale is applied to quantized values
         J_min = int(np.min(J))
         J_max = int(np.max(J))
         if (J_min >= 0 and J_max >= 0) or (J_min <= 0 and J_max <= 0):
@@ -189,29 +200,37 @@ class QuantizationStage(Stage):
                 step_num: int = 2
             else:
                 step_num: int = (2**quantization_precision) - 1
-                step_num = step_num - 1  # dismiss the most negative value
-        step_size: float = np.abs(J_max - J_min) / step_num
-
+                step_num -= 1  # dismiss the most negative value
         nonzero_mask = J != 0
         quantized_J = copy.deepcopy(J)
+        if np.abs(J_max) == np.abs(J_min):
+            step_size = np.abs(J_max - J_min) / (step_num)
+        else:
+            step_size = max(np.abs(J_max), np.abs(J_min)) / int(step_num / 2)
+
         quantization_upper_bound = quantization_lower_bound + step_num * step_size
         quantized_J[quantized_J < quantization_lower_bound] = quantization_lower_bound
         quantized_J[quantized_J > quantization_upper_bound] = quantization_upper_bound
         quantized_J[nonzero_mask] = (
-            np.round((J[nonzero_mask] - quantization_lower_bound) / step_size) * step_size + quantization_lower_bound
+            np.round((J[nonzero_mask] - quantization_lower_bound) / step_size) * step_size
+            + quantization_lower_bound
         )
+        if scale_to_integer and step_size != 0:
+            quantized_J = np.round(quantized_J / step_size)
 
         assert len(np.unique(quantized_J)) <= (step_num + 1), (
             f"Quantized J matrix has {len(np.unique(quantized_J))} unique values, "
             f"which exceeds the limit for"
             f"{quantization_precision}-bit quantization."
         )
-        quantized_J = scale * np.round(quantized_J / step_size)
+        quantized_J *= scale
 
         LOGGER.info(
-            f"Quantization details for {'J matrix' if len(J.shape) == 2\
-            else 'h vector'}: original min value {J_min}, quantized min value {np.min(quantized_J)\
-            }, original max value {J_max}, quantized max value {np.max(quantized_J)}, scale factor {scale}"
+            f"Quantization details for {'J matrix' if len(J.shape) == 2 else 'h vector'}: original min value {
+                J_min
+            }, quantized min value {np.min(quantized_J)}, original max value {J_max}, quantized max value {
+                np.max(quantized_J)
+            }, scale factor {scale}"
         )
 
         return quantized_J
@@ -259,10 +278,10 @@ class QuantizationStage(Stage):
         # Add colorbar legend
         ax.figure.axes[-1].yaxis.label.set_size(12)
         ax.set_title(
-            f"Shape: {mat.shape}, value min: {round(np.min(mat), 2)}, max: {round(np.max(mat), 2)},"
-            f"mean: {round(np.mean(mat), 2)}, unique levels: {len(np.unique(mat))}\n"
-            f"abs value min: {round(np.min(np.abs(mat)), 2)}, max: {round(np.max(np.abs(mat)), 2)},"
-            f"mean: {round(np.mean(np.abs(mat)), 2)}, nz_density: {nz_density:.0%}",
+            f"Shape: {mat.shape}, value min: {round(np.min(mat), 2):.2f}, max: {round(np.max(mat), 2):.2f},"
+            f"mean: {round(np.mean(mat), 2):.2f}, unique levels: {len(np.unique(mat)):.2f}\n"
+            f"abs value min: {round(np.min(np.abs(mat)), 2):.2f}, max: {round(np.max(np.abs(mat)), 2):.2f},"
+            f"mean: {round(np.mean(np.abs(mat)), 2):.2f}, nz_density: {nz_density:.0%}",
             loc="left",
             pad=10,
             weight="bold",
@@ -294,8 +313,8 @@ class QuantizationStage(Stage):
         plt.figure(figsize=(8, 6))
         plt.hist(data.reshape(-1, 1), bins=bins, alpha=0.7, color="blue", edgecolor="black")
         plt.title(
-            f"Distribution of values (min: {round(np.min(data), 2)}, "
-            f"max: {round(np.max(data), 2)}, mean: {round(np.mean(data), 2)}, "
+            f"Distribution of values (min: {round(np.min(data), 2):.2f}, "
+            f"max: {round(np.max(data), 2):.2f}, mean: {round(np.mean(data), 2):.2f}, "
             f"unique levels: {len(np.unique(data))})",
             fontsize=10,
             weight="bold",

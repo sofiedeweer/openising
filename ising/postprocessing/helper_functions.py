@@ -10,9 +10,9 @@ def compute_averages_energies(
     """This function computes the average and std of some data.
     More precisely, the averages and std's are computed for each solver and x-axis data point seperately.
     It is very important the given data is structured as follows:
-        - The dictionary needs to be ordened per solver
-        - Each solver has a dictionary as its value. This dictionary is ordened per x-axis data point.
-        - The value for each x-axis data point is a list of all the possible y-axis data point (due to multiple runs).
+    - The dictionary needs to be ordened per solver
+    - Each solver has a dictionary as its value. This dictionary is ordened per x-axis data point.
+    - The value for each x-axis data point is a list of all the possible y-axis data point (due to multiple runs).
 
     Args:
         data (dict[str:dict[float:np.ndarray]]): A dictionary conatining all the data,
@@ -48,9 +48,9 @@ def get_metadata_from_logfiles(
 ) -> dict[str : dict[float : np.ndarray]]:
     """Generates a dictionary with the correct y data for each solver and x value.
     The dictionary is structured as follows:
-        - the dictionary is ordened per solver
-        - each solver has a dictionary with the x values as keys
-        - for each x value the corresponding y values are stored in a list.
+    - the dictionary is ordened per solver
+    - each solver has a dictionary with the x values as keys
+    - for each x value the corresponding y values are stored in a list.
             There are multiple y values due to the multiple runs the solvers have done.
 
     Args:
@@ -87,25 +87,25 @@ def get_data_from_logfiles(
 ) -> dict[str : dict[float : np.ndarray]]:
     """Generates a dictionary with the correct y data for each solver.
     The dictionary is structured as follows:
-        - The dictionary is ordened per solver
-        - each solver has a dictionary as its value
-        - This dictionary has the x_data as its keys and the corresponding y_data as its value in a list.
+    - The dictionary is ordened per solver
+    - each solver has a dictionary as its value
+    - This dictionary has the x_data as its keys and the corresponding y_data as its value in a list.
 
     Args:
         logfiles (list[pathlib.Path]): A list of all the logfiles that need to be looked at
         y_data (str): the data that needs to be stored in the dictionary
 
     Returns:
-        dict[str:dict[int:list[np.ndarray]]]: The dictionary consists of all the data
+        dict[str:dict[Any:list[np.ndarray]]]: The dictionary consists of all the data
     """
 
-    data = {solver: {x: [] for x in [(return_metadata(logfile, x_data)) for logfile in logfiles
-                                                                    if return_metadata(logfile, "solver") == solver]}
-                    for solver in [return_metadata(logfile, "solver") for logfile in logfiles]}
+    data = {solver: dict() for solver in [return_metadata(logfile, "solver") for logfile in logfiles]}
     for logfile in logfiles:
         solver = return_metadata(logfile, "solver")
         x = return_metadata(fileName=logfile, metadata=x_data)
-        y = return_data(fileName=logfile, data=y_data)
-        data[solver][x].append(y)
-    # data = {(solver, {x:np.array(y)}) for solver in data.keys() for (x, y) in data[solver].items()}
+        y = np.array([return_data(fileName=logfile, data=y_data)])
+        if x not in data[solver].keys():
+            data[solver][x] = y
+        else:
+            data[solver][x] = np.append(data[solver][x], y, axis=0)
     return data

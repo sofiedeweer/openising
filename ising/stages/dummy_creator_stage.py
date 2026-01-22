@@ -9,6 +9,7 @@ from ising.stages.model.ising import IsingModel
 from ising.generators.TSP import TSP
 from ising.stages.qkp_parser_stage import QKPParserStage
 
+
 class DummyCreatorStage(Stage):
     """! Stage to create a dummy Ising model for testing purposes.
     To create a dummy model, the problem type and size must be specified in the yaml configuration.
@@ -33,8 +34,9 @@ class DummyCreatorStage(Stage):
                 dummy_dict = self.generate_dummy_maxcut(N, self.config.quantization_precision, seed)
             elif self.problem_type in ["TSP", "ATSP"]:
                 N = self.config.dummy_size
-                weight_constant = self.config.dummy_weight_constant if hasattr(
-                    self.config, "dummy_weight_constant") else 0.0
+                weight_constant = (
+                    self.config.dummy_weight_constant if hasattr(self.config, "dummy_weight_constant") else 0.0
+                )
                 if not hasattr(self.config, "weight_constant"):
                     LOGGER.warning("No weight_constant provided in config, using default value of 1.0.")
                     weight_constant = 1.0
@@ -46,25 +48,35 @@ class DummyCreatorStage(Stage):
             elif self.problem_type == "MIMO":
                 dummy_qam = self.config.dummy_qam if hasattr(self.config, "dummy_qam") else 4
                 dummy_snr = self.config.dummy_snr if hasattr(self.config, "dummy_snr") else 10
+                dummy_spacing = self.config.dummy_spacing if hasattr(self.config, "dummy_spacing") else 1.0
                 user_num = self.config.dummy_user_num if hasattr(self.config, "dummy_user_num") else 4
                 ant_num = self.config.dummy_ant_num if hasattr(self.config, "dummy_ant_num") else 4
                 dummy_case_num = self.config.dummy_case_num if hasattr(self.config, "dummy_case_num") else 10
-                LOGGER.info(f"QAM: {dummy_qam}, SNR: {dummy_snr}, user_num: {user_num}, ant_num: {ant_num}, "
-                            f"seed: {seed}, case_num: {dummy_case_num}")
-                dummy_dict = self.generate_dummy_mimo(user_num=user_num, ant_num=ant_num,
-                                                      M=dummy_qam, SNR=dummy_snr, seed=seed,
-                                                      dummy_case_num=dummy_case_num)
+                LOGGER.info(
+                    f"QAM: {dummy_qam}, SNR: {dummy_snr}, user_num: {user_num}, ant_num: {ant_num}, "
+                    f"seed: {seed}, case_num: {dummy_case_num}"
+                )
+                dummy_dict = self.generate_dummy_mimo(
+                    user_num=user_num,
+                    ant_num=ant_num,
+                    M=dummy_qam,
+                    SNR=dummy_snr,
+                    antenna_spacing=dummy_spacing,
+                    seed=seed,
+                    dummy_case_num=dummy_case_num,
+                )
             elif self.problem_type == "Knapsack":
                 N = self.config.dummy_size
                 density = self.config.dummy_density if hasattr(self.config, "dummy_density") else 1
                 penalty_value = self.config.dummy_penalty_value if hasattr(self.config, "dummy_penalty_value") else 1.0
                 bit_width = self.config.dummy_bit_width if hasattr(self.config, "dummy_bit_width") else 16
-                LOGGER.info(f"size: {N}, density: {density}, penalty_value: {penalty_value}, "
-                            f"bit_width: {bit_width}, seed: {seed}")
-                dummy_dict = self.generate_dummy_knapsack(size=N,
-                                                          dns=density,
-                                                          penalty_value=penalty_value,
-                                                          bit_width=bit_width)
+                LOGGER.info(
+                    f"size: {N}, density: {density}, penalty_value: {penalty_value}, "
+                    f"bit_width: {bit_width}, seed: {seed}"
+                )
+                dummy_dict = self.generate_dummy_knapsack(
+                    size=N, dns=density, penalty_value=penalty_value, bit_width=bit_width
+                )
             else:
                 LOGGER.error(f"Dummy creator for {self.problem_type} is not supported.")
                 raise NotImplementedError(f"Dummy creator for {self.problem_type} is not implemented.")
@@ -80,7 +92,7 @@ class DummyCreatorStage(Stage):
         yield from sub_stage.run()
 
     @staticmethod
-    def generate_dummy_maxcut(N: int, nb_bits: int=2, seed: int = 0) -> dict:
+    def generate_dummy_maxcut(N: int, nb_bits: int = 2, seed: int = 0) -> dict:
         """! Generates a random Max Cut Ising model.
 
         @param N: Number of nodes in the graph.
@@ -92,7 +104,7 @@ class DummyCreatorStage(Stage):
 
         np.random.seed(seed)
         name = f"DummyMaxCut_N{N}_seed{seed}"
-        J = np.random.choice(np.arange(int(-2**(nb_bits-1)), int(2**(nb_bits-1)-1)), (N, N))
+        J = np.random.choice(np.arange(int(-(2 ** (nb_bits - 1)-1)), int(2 ** (nb_bits - 1))), (N, N))
 
         # Map the J matrix to a graph
         graph = nx.Graph(name=name)
@@ -187,13 +199,14 @@ class DummyCreatorStage(Stage):
 
     @staticmethod
     def generate_dummy_mimo(
-        user_num:int,
-        ant_num:int,
+        user_num: int,
+        ant_num: int,
         M: int,
         SNR: int,
+        antenna_spacing: float = 1.0,
         seed: int = 0,
-        dummy_case_num: int = 10
-        ) -> dict:
+        dummy_case_num: int = 10,
+    ) -> dict:
         """!Generates a MU-MIMO model using section IV-A of [this paper](https://arxiv.org/pdf/2002.02750).
         This is consecutively transformed into an Ising model.
 
@@ -201,6 +214,7 @@ class DummyCreatorStage(Stage):
         @param user_num (int): The amount of antennas at the Base Station.
         @param M (int): the considered QAM scheme.
         @param SNR (int): the Signal-to-Noise Ratio.
+        @param antenna_spacing (float, optional): The spacing between antennas in wavelengths. Defaults to 1.0.
         @param seed (int, optional): The seed for the random number generator. Defaults to 1.
         @param dummy_case_num (int, optional): The number of dummy trails to generate. Defaults to 10.
 
@@ -212,7 +226,7 @@ class DummyCreatorStage(Stage):
         assert (M & (M - 1) == 0) and M != 0, f"Modulation {M} must be a power of 2"
         assert M == 2 or np.sqrt(M).is_integer(), f"Modulation {M} must be a square of an integer"
 
-        if M==2:
+        if M == 2:
             # BPSK scheme
             symbols = np.array([-1, 1])
             r = 1
@@ -222,34 +236,38 @@ class DummyCreatorStage(Stage):
                 ([-np.sqrt(M) + i for i in range(1, 2 + 2 * r, 2)], [np.sqrt(M) - i for i in range(1, 2 + 2 * r, 2)])
             )
 
-        mean_phi     = 120*np.pi/180 * (np.random.random((user_num, )) - 0.5)
+        mean_phi = 120 * np.pi / 180 * (np.random.random((user_num,)) - 0.5)
         mean_phi.sort()
-        sigma_phi = np.array([10*np.pi/180]*user_num)
+        sigma_phi = np.array([10 * np.pi / 180] * user_num)
 
         # H = np.random.random((ant_num, user_num)) + 1j*np.random.random((ant_num, user_num*np.pi/180))
-        H = np.zeros((ant_num, user_num), dtype='complex_')
+        H = np.zeros((ant_num, user_num), dtype="complex_")
         for i in range(user_num):
-            C     = np.zeros((ant_num, ant_num), dtype="complex_")
-            phi   = mean_phi[i]
+            C = np.zeros((ant_num, ant_num), dtype="complex_")
+            phi = mean_phi[i]
             sigma = sigma_phi[i]
             for m in range(ant_num):
                 for n in range(ant_num):
-                    d = 1*(m-n)
-                    C[m, n] = np.exp(2*np.pi*1j*d*np.sin(phi))* np.exp(
-                        -((sigma)**2) / 2 * (2 * np.pi * d * np.cos(phi)) ** 2
+                    d = antenna_spacing * (m - n)
+                    C[m, n] = np.exp(2 * np.pi * 1j * d * np.sin(phi)) * np.exp(
+                        -((sigma) ** 2) / 2 * (2 * np.pi * d * np.cos(phi)) ** 2
                     )
             D, V = np.linalg.eig(C)
-            hu = V @ np.diag(D)**0.5 @ V.conj().T @ (
-                np.random.normal(0, 1, (ant_num,)) + 1j*np.random.normal(0, 1, (ant_num,)))
+            hu = (
+                V
+                @ np.diag(D) ** 0.5
+                @ V.conj().T
+                @ (np.random.normal(0, 1, (ant_num,)) + 1j * np.random.normal(0, 1, (ant_num,)))
+            )
             H[:, i] = hu
-        x_collect: list = []
-        for i in range(dummy_case_num):
-            if M == 2:
-                x = np.random.choice(symbols, size=(user_num,))
-            else:
-                x = np.random.choice(symbols, size=(user_num,)) + 1j * np.random.choice(symbols, size=(user_num,))
-            x_collect.append(x)
-        x_collect: np.ndarray = np.array(x_collect).T  # shape (user_num, dummy_case_num)
+
+        if M == 2:
+            x_collect = np.random.choice(symbols, size=(user_num, dummy_case_num))
+        else:
+            x_collect = np.random.choice(symbols, size=(user_num, dummy_case_num)) + 1j * np.random.choice(
+                symbols, size=(user_num, dummy_case_num)
+            )
+
         dummy_dict: dict = {
             "H": H,
             "x_collect": x_collect,

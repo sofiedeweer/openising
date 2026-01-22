@@ -102,18 +102,17 @@ class SASolver(SolverBase):
                     time_elapsed = time.time() - start_time
                     logger.log(time=time_elapsed, energy=energy_new, state=state, change_state=change_state)
 
-            # Log the final result
-            if logger.filename is not None:
-                logger.log(time=time_elapsed, energy=energy_new, state=state, change_state=change_state)
-            else:
-                time_elapsed = time.time() - start_time
             nb_operations = (
                 num_iterations * (2 * model.num_variables**2 + 4 * model.num_variables + 8)
                 + 2 * model.num_variables**2
                 + 4 * model.num_variables
             )
-            logger.write_metadata(
-                total_time=time_elapsed, solution_state=state, solution_energy=energy, total_operations=nb_operations
-            )
+            if logger.filename is not None:
+                logger.write_metadata(
+                    total_time=time_elapsed,
+                    solution_state=state,
+                    solution_energy=energy,
+                    total_operations=nb_operations,
+                )
 
         return state, energy, time_elapsed, nb_operations

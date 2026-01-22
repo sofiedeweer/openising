@@ -62,11 +62,11 @@ def plot_energies(
 def plot_energies_multiple(
     logfiles: list[pathlib.Path],
     figName: str = "multiple_energies",
-    y_data:str="energy",
+    y_data: str = "energy",
     best_found: float = None,
     save: bool = True,
     save_folder: pathlib.Path = pathlib.Path(),
-    percentage: float = 1.0
+    percentage: float = 1.0,
 ):
     """Plots the energies of multiple optimisation processes.
 
@@ -84,32 +84,30 @@ def plot_energies_multiple(
 
     percentage_plot = 1.0 - percentage
     plt.figure()
-    max_energy = - np.inf
+    max_energy = -np.inf
     for solver in avg_energies.keys():
         num_iterations = len(avg_energies[solver][0])
-        iterations = range(int(percentage_plot*num_iterations), num_iterations)
-        begin_iter = int(percentage_plot*num_iterations)
-        plt.plot(iterations,
-                    avg_energies[solver][0][begin_iter:], label=solver + f": {avg_energies[solver][0][-1]:.2f}")
+        iterations = range(int(percentage_plot * num_iterations), num_iterations)
+        begin_iter = int(percentage_plot * num_iterations)
+        plt.plot(
+            iterations, avg_energies[solver][0][begin_iter:], label=solver + f": {avg_energies[solver][0][-1]:.2f}"
+        )
         plt.fill_between(
-            iterations,
-            min_energies[solver][0][begin_iter:],
-            max_energies[solver][0][begin_iter:],
-            alpha=0.2
+            iterations, min_energies[solver][0][begin_iter:], max_energies[solver][0][begin_iter:], alpha=0.2
         )
         if np.max(avg_energies[solver][0][begin_iter:]) > max_energy:
             max_energy = np.max(avg_energies[solver][0][begin_iter:])
     if best_found is not None:
         plt.axhline(best_found, linestyle="--", color="k", label=f"Best Found: {best_found:.2f}")
-        plt.axhline(0.99*best_found, linestyle="-.", color="k", label="0.99 of Best Found")
-        plt.axhline(0.9*best_found, linestyle="-.", color="k", label="0.9 of Best Found")
+        plt.axhline(0.99 * best_found, linestyle="-.", color="k", label="0.99 of Best Found")
+        plt.axhline(0.9 * best_found, linestyle="-.", color="k", label="0.9 of Best Found")
 
-    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
     plt.title("Energy comparison of different optimisation processes")
     plt.xlabel("iteration")
     plt.ylabel("Energy")
     if best_found is not None:
-        plt.ylim((best_found - 0.2*np.abs(best_found), max_energy + 0.1*np.abs(best_found)))
+        plt.ylim((best_found - 0.2 * np.abs(best_found), max_energy + 0.1 * np.abs(best_found)))
     if save:
         plt.savefig(save_folder / f"{figName}.pdf", bbox_inches="tight")
     plt.close()
@@ -118,10 +116,10 @@ def plot_energies_multiple(
 def plot_energy_dist_multiple_solvers(
     logfiles: list[pathlib.Path],
     xlabel: str,
-    y_data:str = "solution_energy",
+    y_data: str = "solution_energy",
     figName: str = "multiple_solvers_energy_dist",
     best_found: np.ndarray | None = None,
-    best_Gurobi: np.ndarray=None,
+    best_Gurobi: np.ndarray = None,
     save: bool = True,
     save_folder: pathlib.Path = ".",
 ):
@@ -144,9 +142,8 @@ def plot_energy_dist_multiple_solvers(
         plt.semilogx(x_data[solver_name], avg_energies[solver_name], label=f"{solver_name}")
         plt.fill_between(x_data[solver_name], min_energies[solver_name], max_energies[solver_name], alpha=0.2)
     if best_found is not None:
-        plt.semilogx(
-            x_data[solver_name], best_found, "--k", label="Best found")
-        plt.semilogx(x_data[solver_name], 0.99*best_found, "-.", color="k", label="0.99 of best found")
+        plt.semilogx(x_data[solver_name], best_found, "--k", label="Best found")
+        plt.semilogx(x_data[solver_name], 0.99 * best_found, "-.", color="k", label="0.99 of best found")
     if best_Gurobi is not None:
         plt.semilogx(x_data[solver_name], best_Gurobi, "--r", label="Best Gurobi")
     plt.xlabel(xlabel.replace("_", " "))
@@ -161,7 +158,7 @@ def plot_relative_error(
     logfiles: list[pathlib.Path],
     best_found: np.ndarray,
     x_label: str,
-    y_data:str="solution_energy",
+    y_data: str = "solution_energy",
     figName: str = "relative_error",
     save: bool = True,
     save_folder: pathlib.Path = ".",
@@ -179,7 +176,7 @@ def plot_relative_error(
         save (bool, optional): whether to save the figure. Defaults to True.
         save_folder (pathlib.Path, optional): where to save the figure. Defaults to ".".
     """
-    #TODO: gurobi toevoegen
+    # TODO: gurobi toevoegen
     data = get_metadata_from_logfiles(logfiles, y_data=y_data, x_data=x_label)
     avg_energies, min_energies, max_energies, x_data = compute_averages_energies(data)
 
@@ -247,23 +244,64 @@ def plot_energy_time_multiple(
         save_folder (pathlib.Path, optional): _description_. Defaults to '.'.
         figName (str, optional): _description_. Defaults to "energy_time".
     """
-    data = get_data_from_logfiles(logfiles, x_data="time", y_data="energy")
+    data :dict[str:dict[float:np.ndarray]] = get_data_from_logfiles(logfiles, x_data="total_time", y_data="energy")
+
+    # Need to ensure that all energies range over the same time frame
+    for solver_name, plot_info in data.items():
+        max_time = max(plot_info.keys())
+        max_time_aranged = np.linspace(0, max_time, len(data[solver_name][max_time][0]))
+        for total_time, energies in plot_info.items():
+            if total_time < max_time:
+                time_aranged = np.linspace(0, total_time, len(energies[0]))
+                energies_new = -np.ones_like(energies)
+                for idx_new, time in enumerate(max_time_aranged):
+                    if time > total_time:
+                        # Set max energies at time points after total time
+                        energies_new[:, idx_new] = energies[:, -1]
+                    elif time not in time_aranged:
+                        # Fill in missing energies with first order interpolation
+                        idx = np.where(time < time_aranged)[0][0]
+                        energies_new[:, idx_new] = (energies[:, idx] - energies[:, idx - 1]) / (
+                            time_aranged[idx] - time_aranged[idx - 1]
+                        ) * (time - time_aranged[idx - 1]) + energies[:, idx - 1]
+                    else:
+                        # Set correct energy in the corresponding time slots
+                        idx = np.where(time_aranged == time)[0][0]
+                        energies_new[:, idx_new] = energies[:, idx]
+                data[solver_name][max_time] = np.append(data[solver_name][max_time], energies_new, axis=0)
+        for total_time in list(plot_info.keys()):
+            if total_time < max_time:
+                data[solver_name].pop(total_time)
+
     avg_energies, min_energies, max_energies, x_data = compute_averages_energies(data)
 
     plt.figure()
     for solver_name, energies in avg_energies.items():
-        plt.semilogx(x_data[solver_name], energies, label=f"{solver_name}")
-        plt.fill_between(x_data[solver_name], min_energies[solver_name], max_energies[solver_name], alpha=0.2)
+        x_points = np.arange(0, x_data[solver_name][0], x_data[solver_name][0] / len(energies[0]))
+        plt.semilogx(x_points, energies[0], label=f"{solver_name}: {energies[0][-1]:.2f}")
+        plt.fill_between(x_points, min_energies[solver_name][0], max_energies[solver_name][0], alpha=0.2)
     if best_found is not None:
         plt.axhline(
             y=best_found,
             color="k",
             linestyle="--",
-            label="Best found",
+            label=f"Best found: {best_found:.2f}",
+        )
+        plt.axhline(
+            y=0.99 * best_found,
+            color="k",
+            linestyle="-.",
+            label="0.99 of best found",
+        )
+        plt.axhline(
+            y=0.9 * best_found,
+            color="k",
+            linestyle="-.",
+            label="0.9 of best found",
         )
     plt.xlabel("time [s]")
-    plt.ylabel("Energy")
-    plt.legend()
+    plt.ylabel("Ising Energy")
+    plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
     if save:
-        plt.savefig(save_folder / f"{figName}.pdf")
+        plt.savefig(save_folder / f"{figName}.pdf", bbox_inches="tight")
     plt.close()

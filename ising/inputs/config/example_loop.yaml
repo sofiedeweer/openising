@@ -111,6 +111,7 @@ is_hamming_encoding: False
 # Parameters for quantization stage
 quantization: False
 quantization_precision: 1.5
+scale_to_integer: False
 
 # Parameters for npmos stage
 offset_type: others
@@ -129,6 +130,7 @@ dummy_creator: True
 dummy_seed: 42
 dummy_qam: 4
 dummy_snr: 8
+dummy_spacing: 1.0
 dummy_user_num: 16
 dummy_ant_num: 64
 dummy_case_num: 10

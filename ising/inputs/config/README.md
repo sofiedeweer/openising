@@ -158,6 +158,8 @@ Besides, the following parameters will be added within returned ans:
 
 *quantization_precision:* [positive int] the targeted quantization precision.
 
+*scale_to_integer*: [bool] whether to scale the quantized values to integer values supported on chip.
+
 Besides, the following parameters will be added within returned ans:
 
 *quantized_model:* [IsingModel] the Ising model after quantization.
@@ -179,6 +181,8 @@ Besides, the following parameters will be added within returned ans:
 *dummy_qam*: [int] QAM modulation (e.g., 2, 4, 8, 16).
 
 *dummy_snr*: [float] Signal-to-Noise ratio (in dB).
+
+*dummy_spacing:* [float] The spacing between the receiver antennas as a fraction of the wavelength.
 
 *dummy_user_num*: [int] the amount of users.
 

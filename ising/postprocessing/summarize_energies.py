@@ -176,8 +176,7 @@ def histogram_energies_loop(
             bins=15,
             alpha=0.7,
             edgecolor="black",
-            label=f"Base run: best energy = {np.min(energies_base):.2f}, avg energy: {
-                np.mean(energies_base):.2f}",
+            label=f"Base run: best energy = {np.min(energies_base):.2f}, avg energy: {np.mean(energies_base):.2f}",
         )
         for value in parameter_values:
             if problem == "MIMO":
@@ -218,3 +217,60 @@ def histogram_energies_loop(
         plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
         plt.savefig(save_folder / f"figures/{fig_name}", bbox_inches="tight")
         plt.close()
+
+
+def pareto_curve_loop(
+    ans_data: dict[str : dict[Any:Ans]],
+    parameter_name: str,
+    parameter_values: list[Any],
+    problems: list[str],
+    best_found: dict[str:float],
+    save_folder: pathlib.Path,
+    fig_name: str,
+    solver: str,
+):
+    """Plots the pareto curve for a parameter from a solver over different benchmarks.
+
+    Args:
+        ans_data (dict[str:dict[Any:Ans]]): a dictionary containing the answer data for all the different benchmarks.
+        parameter_name (str): the name of the parameter. This will be put on the x-axis.
+        parameter_values (list[Any]): the list of all the parameter values tested.
+        problems (list[str]): the different benchmarks tested.
+        best_found (dict[str:float]): a dictionary with the best found energies for every benchmark.
+        save_folder (pathlib.Path): where to save the figure.
+        fig_name (str): name of the figure to save.
+        solver (str): the solver to plot the pareto curve for.
+    """
+    plt.figure()
+    for problem in problems:
+        energies_avg = [0.0 for _ in parameter_values]
+        energies_min = [0.0 for _ in parameter_values]
+        energies_max = [0.0 for _ in parameter_values]
+        for val, ans in ans_data[problem].items():
+            energies_val = []
+            if problem == "MIMO":
+                for trial in range(ans.config.nb_trials):
+                    energies_val.append(ans.MIMO[trial].lowest_energy[solver])
+            else:
+                energies_val = ans.energies[solver]
+            # Store the energies as a relative error to the best found
+            energies_val = [
+                np.abs(energy - best_found[problem]) / (np.abs(best_found[problem]) if best_found[problem] != 0 else 1)
+                for energy in energies_val
+            ]
+            energies_avg[parameter_values.index(val)] = np.mean(energies_val)
+            energies_min[parameter_values.index(val)] = np.min(energies_val)
+            energies_max[parameter_values.index(val)] = np.max(energies_val)
+        plt.errorbar(
+            parameter_values,
+            energies_avg,
+            yerr=[np.array(energies_avg) - np.array(energies_min), np.array(energies_max) - np.array(energies_avg)],
+            label=f"{problem}",
+        )
+    plt.yscale("log")
+    plt.xlabel(parameter_name)
+    plt.ylabel("Relative error to best found energy")
+    plt.title(f"Pareto curve for different {parameter_name} values - {solver} solver")
+    plt.legend()
+    plt.savefig(save_folder / fig_name, bbox_inches="tight")
+    plt.close()

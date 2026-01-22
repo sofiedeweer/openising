@@ -54,21 +54,20 @@ class InSituSASolver(SolverBase):
         schema = {
             "energy": np.float32,  # Scalar float
             "state": (np.int8, (model.num_variables,)),  # Vector of int8 (to hold -1 and 1)
+            "time": np.float32,
         }
 
         # Initialize logger
         with HDF5Logger(file, schema) as logger:
             if logger.filename is not None:
-                logger.write_metadata(
-                    initial_state=initial_state,
-                    model_name=self.name,
-                    problem_size=model.num_variables,
-                    num_iterations=num_iterations,
-                    initial_temp=initial_temp_inSituSA,
-                    cooling_rate=cooling_rate_inSituSA,
-                    nb_flips=nb_flips,
-                    seed=seed,
-                )
+                self.log_metadata(logger=logger,
+                                  initial_state=initial_state,
+                                  model=model,
+                                  num_iterations=num_iterations,
+                                  initial_temp=initial_temp_inSituSA,
+                                  cooling_rate=cooling_rate_inSituSA,
+                                  nb_flips=nb_flips,
+                                  seed=seed,)
 
             start_time = time.time()
 
@@ -76,6 +75,8 @@ class InSituSASolver(SolverBase):
             Temp = initial_temp_inSituSA
             state = np.sign(initial_state, dtype=np.float32)
             energy = model.evaluate(state)
+            if logger.filename is not None:
+                logger.log(time=0.0, energy=energy, state=state)
             for _ in range(num_iterations):
                 # Select a random node to flip
                 sigma_f = np.where(
@@ -102,18 +103,24 @@ class InSituSASolver(SolverBase):
                     state = sigma_new
                 # state = sigma_new if change_state else state  # accept correct state for flip
 
-                # Log current iteration data
-                if logger.filename is not None:
-                    logger.log(energy=model.evaluate(state), state=state)
                 # Decrease the temperature
                 Temp *= cooling_rate_inSituSA
 
-            end_time = time.time()
+                # Log current iteration data
+                if logger.filename is not None:
+                    elapsed_time = time.time() - start_time
+                    logger.log(energy=model.evaluate(state), state=state, time=elapsed_time)
+
             nb_operations = num_iterations * (
                 nb_flips + 6 * model.num_variables + (model.num_variables - nb_flips) * nb_flips + 1
             )
             energy = model.evaluate(state)
             if logger.filename is not None:
-                logger.write_metadata(solution_state=state, solution_energy=energy, total_operations=nb_operations)
+                logger.write_metadata(
+                    solution_state=state,
+                    solution_energy=energy,
+                    total_operations=nb_operations,
+                    total_time=elapsed_time,
+                )
 
-        return state, energy, end_time - start_time, nb_operations
+        return state, energy, elapsed_time, nb_operations

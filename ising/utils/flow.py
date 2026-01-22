@@ -71,7 +71,7 @@ def parse_hyperparameters(args: Namespace) -> dict[str:]:
     if "inSituSA" in args.solvers:
         hyperparameters["initial_temp_inSituSA"] = float(args.initial_temp_inSituSA)
         hyperparameters["num_iterations_inSituSA"] = int(args.num_iterations_inSituSA)
-        hyperparameters["nb_flips"] = float(args.nb_flips)
+        hyperparameters["nb_flips"] = int(args.nb_flips)
         Tfin = float(args.T_final_inSituSA)
         hyperparameters["cooling_rate_inSituSA"] = (
             return_rx(hyperparameters["num_iterations_inSituSA"], hyperparameters["initial_temp_inSituSA"], Tfin)
@@ -201,3 +201,33 @@ def compute_list_from_arg(arg: str, step: int = 1) -> np.ndarray:
     """
     arg_list = arg.split()
     return np.array(range(int(arg_list[0]), int(arg_list[1]) + 1, step))
+
+
+def relative_to_best_found(energy: np.ndarray[float], best_found: float) -> np.ndarray[float]:
+    """Computes the relative distance from the best found energy. The return value will always be between 0 and 1,
+    no matter if the best found is positive or negative
+
+    @param energy (float): the energy to compute the relative distance for.
+    @param best_found (float): the baseline energy.
+
+    @return np.ndarray[float]: the relative distance.
+    """
+    if best_found != 0:
+        return np.abs(energy-best_found) / np.abs(best_found)
+    else:
+        return -1
+
+def approximation_to_best_found(energy: np.ndarray[float], best_found:float) -> np.ndarray[float]:
+    """Computes the approximation to the best found energy in percentage.
+
+    @param energy (float): the energy to compute the approximation for.
+    @param best_found (float): the baseline energy.
+
+    @return np.ndarray[float]: the approximation in percentage.
+    """
+    if best_found < 0:
+        return 100*np.abs(energy) / np.abs(best_found)
+    elif best_found > 0:
+        return 100*(1 - relative_to_best_found(energy, best_found))
+    else:
+        return 1/np.ndarray([en if en != 0 else 1 for en in energy]) * 100
