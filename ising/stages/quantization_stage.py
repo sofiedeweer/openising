@@ -53,11 +53,16 @@ class QuantizationStage(Stage):
                 quantization_precision=quantization_precision,
                 scale_to_integer=scale_to_integer,
             )
+            h_scale = self.config.h_scale_factor if hasattr(self.config, "h_scale_factor") else 1.0
+            LOGGER.info(
+                f"J is {np.max(np.abs(original_J)) / np.max(np.abs(self.ising_model.h)):.2f\
+                        } times larger than h. Scale used is {h_scale}."
+            )
             quantized_h = self.quantize_matrix(
                 J=self.ising_model.h,
                 original_precision=original_int_h_precision,
                 quantization_precision=quantization_precision,
-                scale=self.config.h_scale_factor if hasattr(self.config, "h_scale_factor") else 1.0,
+                scale=h_scale,
                 scale_to_integer=scale_to_integer,
             )
             LOGGER.info(f"Quantization is enabled with precision: {quantization_precision}-bit.")
@@ -212,8 +217,7 @@ class QuantizationStage(Stage):
         quantized_J[quantized_J < quantization_lower_bound] = quantization_lower_bound
         quantized_J[quantized_J > quantization_upper_bound] = quantization_upper_bound
         quantized_J[nonzero_mask] = (
-            np.round((J[nonzero_mask] - quantization_lower_bound) / step_size) * step_size
-            + quantization_lower_bound
+            np.round((J[nonzero_mask] - quantization_lower_bound) / step_size) * step_size + quantization_lower_bound
         )
         if scale_to_integer and step_size != 0:
             quantized_J = np.round(quantized_J / step_size)
