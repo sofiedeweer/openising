@@ -54,10 +54,12 @@ class QuantizationStage(Stage):
                 scale_to_integer=scale_to_integer,
             )
             h_scale = self.config.h_scale_factor if hasattr(self.config, "h_scale_factor") else 1.0
-            LOGGER.info(
-                f"J is {np.max(np.abs(original_J)) / np.max(np.abs(self.ising_model.h)):.2f\
-                        } times larger than h. Scale used is {h_scale}."
-            )
+            max_abs_h = np.max(np.abs(self.ising_model.h))
+            if max_abs_h != 0:
+                j_over_h_ratio = np.max(np.abs(original_J)) / max_abs_h
+                LOGGER.info(
+                    f"J is {j_over_h_ratio:.2f} times larger than h. Scale used is {h_scale}."
+                )
             quantized_h = self.quantize_matrix(
                 J=self.ising_model.h,
                 original_precision=original_int_h_precision,
