@@ -114,5 +114,7 @@ class SASolver(SolverBase):
                     solution_energy=energy,
                     total_operations=nb_operations,
                 )
+            else:
+                time_elapsed = time.time() - start_time
 
         return state, energy, time_elapsed, nb_operations

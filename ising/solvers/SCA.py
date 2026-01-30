@@ -3,6 +3,7 @@ import pathlib
 import random
 import time
 
+from ising.stages import LOGGER
 from ising.solvers.base import SolverBase
 from ising.stages.model.ising import IsingModel
 from ising.utils.HDF5Logger import HDF5Logger
@@ -13,10 +14,6 @@ from ising.utils.flow import return_q
 class SCA(SolverBase):
     def __init__(self):
         self.name = "SCA"
-
-    def change_hyperparam(self, param: float, rate: float) -> float:
-        """Changes hyperparameters according to update rule."""
-        return param * rate
 
     def solve(
         self,
@@ -51,6 +48,7 @@ class SCA(SolverBase):
         """
         if q== -1.0:
             q= return_q(model)
+            LOGGER.info(f"Using optimal q value: {q}")
             r_q = 1.0
 
         N = model.num_variables
@@ -58,7 +56,6 @@ class SCA(SolverBase):
         J = triu_to_symm(model.J)
         flipped_states = []
         state = np.copy(np.sign(initial_state))
-        tau = np.copy(state)
         if seed is None:
             seed = int(time.time() * 1000)
         random.seed(seed)
@@ -85,18 +82,17 @@ class SCA(SolverBase):
                 energy = model.evaluate(state.astype(np.float32))
                 log.log(time=0.0, energy=energy, state=state)
             for _ in range(num_iterations):
-                hs = np.matmul(J, state) + model.h # 2*N**2 + N
+                hs = J@state + model.h # 2*N**2 + N
 
                 Prob = self.get_prob(hs, state, q, T) # 2*N + 3*N
                 rand = np.random.uniform(0, 1, size=(N,)) # N
 
                 flipped_states = [y for y in range(N) if Prob[y] < rand[y]] # N
 
-                tau[flipped_states] = -state[flipped_states] # N/4
-                state = np.copy(tau)
+                state[flipped_states] = -state[flipped_states] # N
 
-                T = self.change_hyperparam(T, cooling_rate_SCA) # 1
-                q = self.change_hyperparam(q, r_q) # 1
+                T = T*cooling_rate_SCA # 1
+                q = q* r_q # 1
                 flipped_states = []
 
                 if log.filename is not None:
@@ -131,13 +127,6 @@ class SCA(SolverBase):
         Returns:
             probability (np.ndarray): probability of accepting the change of all nodes.
         """
-        values = (hs * sample + q)
-        probs = np.zeros_like(values)
-        for i,val in enumerate(values):
-            if val > 2*T:
-                probs[i] = 1
-            elif val < -2*T:
-                probs[i] = 0
-            else:
-                probs[i] = val/(4*T) + 0.5
+        val = 1/T * (hs*sample + q)/2
+        probs = 1 / (1 + np.exp(-val))
         return probs

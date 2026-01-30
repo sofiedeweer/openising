@@ -244,8 +244,7 @@ def pareto_curve_loop(
     plt.figure()
     for problem in problems:
         energies_avg = [0.0 for _ in parameter_values]
-        energies_min = [0.0 for _ in parameter_values]
-        energies_max = [0.0 for _ in parameter_values]
+        energies_std = [0.0 for _ in parameter_values]
         for val, ans in ans_data[problem].items():
             energies_val = []
             if problem == "MIMO":
@@ -259,12 +258,11 @@ def pareto_curve_loop(
                 for energy in energies_val
             ]
             energies_avg[parameter_values.index(val)] = np.mean(energies_val)
-            energies_min[parameter_values.index(val)] = np.min(energies_val)
-            energies_max[parameter_values.index(val)] = np.max(energies_val)
+            energies_std[parameter_values.index(val)] = np.std(energies_val)
         plt.errorbar(
             parameter_values,
             energies_avg,
-            yerr=[np.array(energies_avg) - np.array(energies_min), np.array(energies_max) - np.array(energies_avg)],
+            yerr=energies_std,
             label=f"{problem}",
         )
     plt.yscale("log")
@@ -272,5 +270,6 @@ def pareto_curve_loop(
     plt.ylabel("Relative error to best found energy")
     plt.title(f"Pareto curve for different {parameter_name} values - {solver} solver")
     plt.legend()
+    plt.grid(which='both')
     plt.savefig(save_folder / fig_name, bbox_inches="tight")
     plt.close()
