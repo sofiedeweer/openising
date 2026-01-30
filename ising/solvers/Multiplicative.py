@@ -20,7 +20,7 @@ class Multiplicative(SolverBase):
         capacitance: float,
         current: float,
         stop_criterion: float,
-        coupling:np.ndarray,
+        coupling: np.ndarray,
         # coupling_pos: np.ndarray,
         # coupling_neg: np.ndarray,
         voltage_delay_idx: np.ndarray | None = None,
@@ -185,17 +185,17 @@ class Multiplicative(SolverBase):
         while i < self.num_iterations and max_change > self.stop_criterion:
             if counter < total_delay + 1:
                 # if self.mismatch:
-                    # if total_delay > 0:  # mismatch and delay present
-                    #     # TODO: debug calculation
-                    #     Voltages = self.construct_voltage_delay(previous_states)
-                    #     dv_pos = np.diagonal(self.coupling_pos * Voltages).copy()
-                    #     dv_neg = np.diagonal(self.coupling_neg * Voltages).copy()
-                    #     dv = np.where(dv_pos > 0, dv_pos, dv_neg)
-                    # else:  # mismatch present
-                    #     dv_pos = self.coupling_pos * np.sign(state)
-                    #     dv_neg = self.coupling_neg * np.sign(state)
-                    #     dv_all = np.where(dv_pos > 0, dv_pos, dv_neg)
-                    #     dv = np.sum(dv_all, axis=1)
+                # if total_delay > 0:  # mismatch and delay present
+                #     # TODO: debug calculation
+                #     Voltages = self.construct_voltage_delay(previous_states)
+                #     dv_pos = np.diagonal(self.coupling_pos * Voltages).copy()
+                #     dv_neg = np.diagonal(self.coupling_neg * Voltages).copy()
+                #     dv = np.where(dv_pos > 0, dv_pos, dv_neg)
+                # else:  # mismatch present
+                #     dv_pos = self.coupling_pos * np.sign(state)
+                #     dv_neg = self.coupling_neg * np.sign(state)
+                #     dv_all = np.where(dv_pos > 0, dv_pos, dv_neg)
+                #     dv = np.sum(dv_all, axis=1)
                 # else:
                 #     if total_delay > 0:  # delay present
                 #         Voltages = self.construct_voltage_delay(previous_states)
@@ -256,6 +256,8 @@ class Multiplicative(SolverBase):
         accumulation_delay: float = 0.0,
         broadcast_delay: float = 0.0,
         delay_offset: float = 0.0,
+        combine_nodes: bool = False,
+        nb_splits: int = 2,
         # sigma_J: float = -1.0,
         file: pathlib.Path | None = None,
     ) -> tuple[np.ndarray, float]:
@@ -311,7 +313,6 @@ class Multiplicative(SolverBase):
 
         dtMult = 0.1 * capacitance / (current * np.max(np.abs(np.sum(coupling, axis=1))))
 
-
         capacitance_delay = capacitance / model.num_variables
         LOGGER.info(f"Delay capacitance: {capacitance_delay:.4e} F")
 
@@ -343,8 +344,15 @@ class Multiplicative(SolverBase):
                     )
 
         # Set the parameters for easy calling
-        init_size = int(init_cluster_size * model.num_variables)
-        end_size = int(end_cluster_size * model.num_variables)
+        if combine_nodes:
+            num_var = int(model.num_variables / nb_splits)
+            init_size = int(init_cluster_size * num_var)
+            end_size = int(end_cluster_size * num_var)
+        else:
+            init_size = int(init_cluster_size * model.num_variables)
+            end_size = int(end_cluster_size * model.num_variables)
+        if end_size < 1:
+            end_size = 1
         self.set_params(
             dtMult,
             num_iterations,
@@ -430,11 +438,11 @@ class Multiplicative(SolverBase):
                 )
                 if nb_flipping > 1:
                     log.log(
-                        energy_best = np.inf,
-                        energy = np.inf,
-                        state_in = np.sign(v[:model.num_variables]),
-                        state_out = np.zeros(model.num_variables, dtype=np.int8),
-                        cluster = np.zeros(model.num_variables, dtype=np.int8),
+                        energy_best=np.inf,
+                        energy=np.inf,
+                        state_in=np.sign(v[: model.num_variables]),
+                        state_out=np.zeros(model.num_variables, dtype=np.int8),
+                        cluster=np.zeros(model.num_variables, dtype=np.int8),
                     )
             best_energy = np.inf
             best_sample = v[: model.num_variables].copy()
@@ -468,6 +476,8 @@ class Multiplicative(SolverBase):
                         end_size=end_size,
                         exponent=exponent,
                     ),
+                    combine_nodes=combine_nodes,
+                    nb_splits=nb_splits,
                     **additional_information,
                 )
                 v = best_sample.copy()
@@ -478,11 +488,11 @@ class Multiplicative(SolverBase):
                 # Log everything
                 if log.filename is not None and nb_flipping > 1:
                     log.log(
-                        energy_best = best_energy,
+                        energy_best=best_energy,
                         energy=energy,
                         state_out=sample,
-                        state_in = best_sample,
-                        cluster= np.where(v[:model.num_variables] == best_sample, 0, 1).astype(np.int8),
+                        state_in=best_sample,
+                        cluster=np.where(v[: model.num_variables] == best_sample, 0, 1).astype(np.int8),
                     )
 
             if log.filename is not None:
@@ -501,49 +511,76 @@ class Multiplicative(SolverBase):
         end_size: int,
         exponent: float = 3.0,
     ):
-        return int(
-            np.floor(
-                (((end_size - 1) / init_size) ** (iteration * exponent / (total_iterations - 1)))
-                * (init_size - end_size)
-                + end_size
-            )
+        result = np.floor(
+            (((end_size - 1) / init_size) ** (iteration * exponent / (total_iterations - 1))) * (init_size - end_size)
+            + end_size
         )
 
-    def find_cluster_gradient(self, cluster_size: int, **additional_information) -> np.ndarray:
+        return int(result)
+
+    def find_cluster_gradient(
+        self, cluster_size: int, combine_nodes: bool, nb_splits: int, **additional_information
+    ) -> np.ndarray:
         coupling = self.coupling_d * self.resistance
         sigma = additional_information["current_state"]
-        threshold = additional_information["cluster_threshold"]
 
         gradient = (coupling @ np.block([sigma, 1]))[: len(sigma)]
         gradient /= np.max(gradient)
-        available_nodes = np.where(gradient >= threshold, np.arange(len(sigma)), -1)  # Chosen nodes based on threshold
+        if combine_nodes:
+            num_nodes = len(sigma) / nb_splits
+            gradient = np.array([np.sum(gradient[i * nb_splits : (i + 1) * nb_splits]) for i in range(int(num_nodes))])
+        else:
+            num_nodes = len(sigma)
+        threshold = additional_information["cluster_threshold"]
+
+        available_nodes = np.where(gradient >= threshold, np.arange(num_nodes), -1)  # Chosen nodes based on threshold
         if len(available_nodes[available_nodes >= 0]) < cluster_size:  # Case when not enough nodes are available
             current_size = len(available_nodes[available_nodes >= 0])
             ind_unavailable_nodes = np.where(available_nodes < 0)[0]
             chosen_nodes = np.random.choice(ind_unavailable_nodes, (cluster_size - current_size,), replace=False)
-            available_nodes[chosen_nodes] = np.arange(len(sigma))[chosen_nodes]
+            available_nodes[chosen_nodes] = np.arange(num_nodes)[chosen_nodes]
             cluster = available_nodes[available_nodes >= 0]
         else:  # case when enough nodes are available
             cluster = np.random.choice(available_nodes[available_nodes >= 0], size=(cluster_size,), replace=False)
+        if combine_nodes:
+            cluster = np.array([nb_splits*cluster_elem + i for cluster_elem in cluster for i in range(nb_splits)])
         return cluster
 
-    def find_cluster_random(self, cluster_size: int, **additional_information) -> np.ndarray:
+    def find_cluster_random(
+        self, cluster_size: int, combine_nodes: bool, nb_splits: int, **additional_information
+    ) -> np.ndarray:
         """Finds a random cluster of nodes to flip.
 
         Args:
             cluster_size (int): the size of the cluster to find.
         """
-        cluster = self.generator(np.arange(self.num_variables), size=(cluster_size,), replace=False)
+        if combine_nodes:
+            cluster = self.generator(
+                np.arange(int(self.num_variables / nb_splits)), size=(cluster_size,), replace=False
+            )
+            cluster = np.array([nb_splits*cluster_elem + i for cluster_elem in cluster for i in range(nb_splits)])
+        else:
+            cluster = self.generator(np.arange(self.num_variables), size=(cluster_size,), replace=False)
         return cluster
 
-    def find_cluster_weighted_mean(self, cluster_size: int, **additional_information) -> np.ndarray:
+    def find_cluster_weighted_mean(
+        self, cluster_size: int, combine_nodes: bool, nb_splits: int, **additional_information
+    ) -> np.ndarray:
         optimal_points = additional_information["optimal_points"]
         choice = additional_information["choice"]
         weight_nodes = np.zeros_like(optimal_points[0][0], dtype=float)
+
         for point, en in optimal_points:
             weight_nodes += 1 / en * point  # the smaller the energy, the larger the weight
         if np.linalg.norm(weight_nodes) == 0:
             weight_nodes = np.random.random(weight_nodes.shape)  # First step is random choice
+        if combine_nodes:
+            weight_nodes = np.array(
+                [
+                    np.sum(weight_nodes[i * nb_splits : (i + 1) * nb_splits])
+                    for i in range(int(len(weight_nodes) / nb_splits))
+                ]
+            )
         weight_nodes = np.abs(weight_nodes) / np.max(np.abs(weight_nodes))
         if choice == "smallest":
             available_nodes = np.where(weight_nodes < additional_information["cluster_threshold"])[0]
@@ -560,4 +597,6 @@ class Multiplicative(SolverBase):
                 chosen_nodes = np.random.choice(ind_unavailable_nodes, (cluster_size - current_size,), replace=False)
                 available_nodes = np.append(available_nodes, chosen_nodes)
         cluster = np.random.choice(available_nodes, size=(cluster_size,), replace=False)
+        if combine_nodes:
+            cluster = np.array([nb_splits*cluster_elem + i for cluster_elem in cluster for i in range(nb_splits)])
         return cluster

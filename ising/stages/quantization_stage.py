@@ -44,8 +44,20 @@ class QuantizationStage(Stage):
             original_precision = max(original_int_j_precision, original_int_h_precision)
 
         if self.config.quantization:
+            if self.config.combine_nodes:
+                LOGGER.info("Combine nodes is enabled, setting scale_to_integer to True.")
+                self.config.scale_to_integer = True
+                quantization_precision = (
+                    int(
+                        np.ceil(
+                            np.log2((2 ** (self.config.quantization_precision - 1) - 1) * self.config.nodes_scaling**2)
+                        )
+                    )
+                    + 1
+                )
+            else:
+                quantization_precision = self.config.quantization_precision
             scale_to_integer = self.config.scale_to_integer if hasattr(self.config, "scale_to_integer") else False
-            quantization_precision = self.config.quantization_precision
             original_J = self.ising_model.J
             quantized_J = self.quantize_matrix(
                 J=original_J,
@@ -92,10 +104,10 @@ class QuantizationStage(Stage):
                         ans.states[solver][energy_id].astype(np.float32)
                     )
                     if hasattr(ans, "tsp_energies"):
-                        if ans.tsp_energies[energy_id] == math.inf:
-                            ans.tsp_energies[energy_id] = math.inf
+                        if ans.tsp_energies[solver][energy_id] == math.inf:
+                            ans.tsp_energies[solver][energy_id] = math.inf
                         else:
-                            ans.tsp_energies[energy_id] = ans.energies[energy_id]
+                            ans.tsp_energies[solver][energy_id] = ans.energies[solver][energy_id]
             yield ans, debug_info
 
     @staticmethod
@@ -201,7 +213,7 @@ class QuantizationStage(Stage):
             else:
                 step_num: int = (2**quantization_precision) - 1
                 step_num -= 1  # dismiss the most negative value
-        nonzero_mask = J != 0
+
         quantized_J = copy.deepcopy(J)
         if np.abs(J_max) == np.abs(J_min):
             step_size = np.abs(J_max - J_min) / (step_num)
@@ -209,19 +221,26 @@ class QuantizationStage(Stage):
             step_size = max(np.abs(J_max), np.abs(J_min)) / int(step_num / 2)
 
         quantization_upper_bound = quantization_lower_bound + step_num * step_size
-        quantized_J[quantized_J < quantization_lower_bound] = quantization_lower_bound
-        quantized_J[quantized_J > quantization_upper_bound] = quantization_upper_bound
+        nonzero_mask = (J != 0) & (J > quantization_lower_bound) & (J < quantization_upper_bound)
+        quantized_J[quantized_J <= quantization_lower_bound] = quantization_lower_bound
+        quantized_J[quantized_J >= quantization_upper_bound] = quantization_upper_bound
         quantized_J[nonzero_mask] = (
-            np.round((J[nonzero_mask] - quantization_lower_bound) / step_size) * step_size
-            + quantization_lower_bound
+            np.round((J[nonzero_mask] - quantization_lower_bound) / step_size) * step_size + quantization_lower_bound
         )
+
         if scale_to_integer and step_size != 0:
             quantized_J = np.round(quantized_J / step_size)
 
         assert len(np.unique(quantized_J)) <= (step_num + 1), (
             f"Quantized J matrix has {len(np.unique(quantized_J))} unique values, "
-            f"which exceeds the limit for"
+            f"which exceeds the limit for "
             f"{quantization_precision}-bit quantization."
+        )
+        LOGGER.info(
+            f"Maximum absolute value original matrix: {max(J_max, np.abs(J_min))}, quantized max absolute value: {\
+                max(np.abs(np.max(quantized_J)), np.abs(np.min(quantized_J)))}. Proper scale: {\
+                max(np.abs(np.max(quantized_J)), np.abs(np.min(quantized_J)))/max(J_max, np.abs(J_min))},\
+                scale used: {scale}"
         )
         quantized_J *= scale
 

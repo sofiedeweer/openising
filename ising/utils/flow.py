@@ -53,6 +53,7 @@ def parse_hyperparameters(args: Namespace) -> dict[str:]:
         hyperparameters["dtBRIM"] = float(args.dtBRIM)
         hyperparameters["do_flipping"] = bool(args.do_flipping)
         hyperparameters["coupling_annealing"] = bool(args.coupling_annealing)
+        hyperparameters["probability_start"] = float(args.probability_start)
 
     # SA-like parameters
     if "SA" in args.solvers or "SCA" in args.solvers or "DSA" in args.solvers:
@@ -83,11 +84,14 @@ def parse_hyperparameters(args: Namespace) -> dict[str:]:
     if "SCA" in args.solvers:
         hyperparameters["num_iterations_SCA"] = int(args.num_iterations_SCA)
         hyperparameters["q"] = float(args.q)
-        hyperparameters["r_q"] = (
-            return_rx(hyperparameters["num_iterations_SCA"], hyperparameters["q"], float(args.q_final))
-            if hyperparameters["q"] != 0
-            else 1.0
-        )
+        if float(args.q_final) != -1:
+            hyperparameters["r_q"] = (
+                return_rx(hyperparameters["num_iterations_SCA"], hyperparameters["q"], float(args.q_final))
+                if hyperparameters["q"] != 0
+                else 1.0
+            )
+        else:
+            hyperparameters["r_q"] = 1.0
         Tfin = float(args.T_final_SCA)
         hyperparameters["cooling_rate_SCA"] = (
             return_rx(hyperparameters["num_iterations_SCA"], hyperparameters["initial_temp"], Tfin)

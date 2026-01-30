@@ -117,7 +117,7 @@ class SimulationStage(Stage):
             computation_time=comp_time_collect,
             operation_count=operation_count,
             logfiles=logfile_collect,
-            initialization_states = initialization_state_collect,
+            initialization_states=initialization_state_collect,
         )
         debug_info = Ans()  # Placeholder for debug information, if needed
 
@@ -207,7 +207,16 @@ class SimulationStage(Stage):
         solvers = {
             "BRIM": (
                 BRIM().solve,
-                ["dtBRIM", "capacitance", "resistance", "stop_criterion", "seed", "coupling_annealing", "do_flipping"],
+                [
+                    "dtBRIM",
+                    "capacitance",
+                    "resistance",
+                    "stop_criterion",
+                    "seed",
+                    "coupling_annealing",
+                    "do_flipping",
+                    "probability_start" if hasattr(self.config, "probability_start") else None
+                ],
             ),
             "Multiplicative": (
                 Multiplicative().solve,
@@ -245,6 +254,9 @@ class SimulationStage(Stage):
         if solver in solvers:
             func, params = solvers[solver]
             chosen_hyperparameters = {key: hyperparameters[key] for key in params if key in hyperparameters}
+            if solver == "Multiplicative":
+                chosen_hyperparameters["combine_nodes"] = self.config.combine_nodes
+                chosen_hyperparameters["nb_splits"] = self.config.nodes_scaling
             optim_state: np.ndarray
             optim_energy: float | None
             optim_state, optim_energy, computation_time, operation_count = func(
