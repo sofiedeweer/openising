@@ -101,6 +101,8 @@ The config file is written in YAML. It must has the following parameters:
 
 *capacitance:* [float] the capacitance.
 
+*probability_start*: [float] The starting probability with which to flip nodes. High means that many nodes have a higher chance to flip, i.e more nodes will be flipped.
+
 **Parameters for SB (bSB/dSB) solver**
 
 *dtSB:* [float] the time step used in the Simulated Bifurcation solvers (dSB and bSB).
@@ -169,6 +171,12 @@ Besides, the following parameters will be added within returned ans:
 **If MismatchStage is used, the following parameter is required:**
 
 *mismatch_std:* [float] the standard deviation present in the model. When 0.0, the mismatch is automatically turned off.
+
+**If CombineNodesStage is used, the following parameters are required:**
+
+*combine_nodes:* [bool] whether or not to activate the CombineNodesStage. 
+
+*nodes_scaling:* [int] the amount of nodes each node will be split into.
 
 **If DummyCreatorStage is used, the following parameters are required:**
 

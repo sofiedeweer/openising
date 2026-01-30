@@ -3,11 +3,11 @@
 #################################
 
 # Benchmark file name
-benchmark: ./ising/benchmarks/MIMO/user5_ant5_M16.txt
+benchmark: ./ising/benchmarks/TSP/burma14.tsp
 
 # Solver to use: [BRIM, SA, DSA, inSituSA, bSB, dSB, SCA, Multiplicative, CIM, all]
 solvers:
-  - bSB
+  - BRIM
 
 # Number of trials
 nb_runs: 5
@@ -74,6 +74,7 @@ stop_criterion: 1e-6  # 1uV
 resistance: 1
 do_flipping: True
 coupling_annealing: True
+probability_start: 0.001799
 
 # Parameters for SB
 num_iterations_SB: 1
@@ -119,10 +120,14 @@ noise_level: 0.1
 # Parameters for mismatch stage
 mismatch_std: 0.0
 
+# Parameters for combine nodes stage
+combine_nodes: False
+nodes_scaling: 2
+
 #################################
 ## Dummy creator hyperparameters
 #################################
-dummy_creator: True
+dummy_creator: False
 
 # Parameters for dummy MIMO
 dummy_seed: 42

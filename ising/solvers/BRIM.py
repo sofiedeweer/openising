@@ -16,7 +16,6 @@ from ising.utils.numpy import triu_to_symm
 class BRIM(SolverBase):
     def __init__(self):
         self.name = "BRIM"
-        self.p = 0.001799
         self.end_prob = 2e-06
         self.sh_it_frac = 2e-04
         self.fourth = np.float32(1 / 4)
@@ -39,7 +38,7 @@ class BRIM(SolverBase):
         self.flip_counts = np.where(self.flip_counts != -1, self.flip_counts + 1, -1)
 
         # Choose which spins to flip
-        random_v = np.random.uniform(0, 1, (self.num_variables))
+        random_v = np.random.uniform(0, 1, (self.num_variables + int(self.bias),))
         self.chosen_flips = random_v < self.p
         if self.bias:
             self.chosen_flips[-1] = False  # Do not flip the bias node
@@ -49,11 +48,10 @@ class BRIM(SolverBase):
         self.flip_counts = np.where(self.chosen_flips, 0, self.flip_counts)
 
         # Unclamp nodes with spin flip timeout
-        time_up = (self.flip_counts == self.flip_iters)
+        time_up = self.flip_counts == self.flip_iters
         self.flip_voltages = np.where(time_up, 0, self.flip_voltages)
         self.chosen_flips = np.where(time_up, False, self.chosen_flips)
         self.flip_counts = np.where(time_up, -1, self.flip_counts)
-
 
         self.p += self.prob_change
 
@@ -70,9 +68,12 @@ class BRIM(SolverBase):
         )
 
         # Compute the differential equation
+        dv = np.zeros_like(vt, dtype=np.float32)
         if self.do_flipping:
             flip = (self.flip_voltages - vt) / self.resistance
-            dv = np.where(self.chosen_flips, flip / self.capacitance, 1 / self.capacitance * ((Ka * coupling) @ vt - z))
+            dv = np.where(
+                self.chosen_flips, flip / self.capacitance, 1 / self.capacitance * ((Ka * coupling) @ vt - z)
+            )
         else:
             dv = 1 / self.capacitance * ((Ka * coupling) @ vt - z)
 
@@ -94,6 +95,7 @@ class BRIM(SolverBase):
         dtBRIM: float,
         capacitance: float,
         resistance: float,
+        probability_start: float = 0.001799,
         stop_criterion: float = 1e-8,
         file: pathlib.Path | None = None,
         coupling_annealing: bool = False,
@@ -108,6 +110,7 @@ class BRIM(SolverBase):
             num_iterations (int): amount of iterations that need to be simulated
             dtBRIM (float): time step.
             capacitance (float): capacitor parameter.
+            probability_start (float, optional): initial flipping probability. Defaults to 0.001799.
             stop_criterion (float, optional): stop criterion for the maximum allowed change between iterations.
                                               Defaults to 1e-8.
             file (pathlib.Path, None, Optional): absolute path to which data will be logged. If 'None',
@@ -131,7 +134,7 @@ class BRIM(SolverBase):
         else:
             new_model = model
             self.bias = False
-        J = triu_to_symm(new_model.J).astype(np.float32) / resistance
+        coupling = triu_to_symm(new_model.J).astype(np.float32) / resistance
 
         # Make sure the correct seed is used
         if seed == 0:
@@ -151,17 +154,21 @@ class BRIM(SolverBase):
         }
 
         # Set up the flipping probability
-        self.prob_change = (self.p - self.end_prob) / (num_iterations - 1)
+        if probability_start <= self.end_prob:
+            self.end_prob = probability_start
+        self.prob_change = (self.end_prob - probability_start) / (num_iterations - 1)
 
+        assert self.prob_change <= 0.0, "probability change should be negative"
+        self.p = probability_start
         # Set all parameters
         self.num_variables = model.num_variables
         self.capacitance = np.float32(capacitance)
         self.resistance = np.float32(resistance)
         self.do_flipping = do_flipping
         self.flip_iters = num_iterations * self.sh_it_frac
-        self.chosen_flips = np.zeros(self.num_variables, dtype=bool)
-        self.flip_voltages = np.zeros(self.num_variables, dtype=np.float32)
-        self.flip_counts = -np.ones(self.num_variables, dtype=np.int32)
+        self.chosen_flips = np.zeros(self.num_variables + int(self.bias), dtype=bool)
+        self.flip_voltages = np.zeros(self.num_variables + int(self.bias), dtype=np.float32)
+        self.flip_counts = -np.ones(self.num_variables + int(self.bias), dtype=np.int32)
 
         with HDF5Logger(file, schema) as log:
             # Log the initial metadata
@@ -198,11 +205,9 @@ class BRIM(SolverBase):
                     Ka = np.float32(1.0)
 
                 # Forward Euler
-                k1 = dtBRIM * self.dvdt(tk, previous_voltages, J, Ka)
+                k1 = dtBRIM * self.dvdt(tk, previous_voltages, coupling, Ka)
 
-                new_voltages = np.clip(
-                    previous_voltages + k1, np.float32(-1), np.float32(1)
-                )
+                new_voltages = np.clip(previous_voltages + k1, np.float32(-1), np.float32(1))
 
                 if self.do_flipping:
                     self.choose_spinflips(new_voltages)
@@ -228,5 +233,6 @@ class BRIM(SolverBase):
             if log.filename is not None:
                 log.write_metadata(solution_state=sample, solution_energy=energy, total_time=t_eval[-1])
             else:
+                sample = np.sign(new_voltages[: model.num_variables])
                 energy = model.evaluate(np.sign(new_voltages[: model.num_variables]))
         return sample, energy, tend, -1
