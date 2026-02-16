@@ -220,7 +220,7 @@ def histogram_energies_loop(
 
 
 def pareto_curve_loop(
-    ans_data: dict[str : dict[Any:Ans]],
+    energy_data: dict[str : dict[Any:list]],
     parameter_name: str,
     parameter_values: list[Any],
     problems: list[str],
@@ -232,7 +232,8 @@ def pareto_curve_loop(
     """Plots the pareto curve for a parameter from a solver over different benchmarks.
 
     Args:
-        ans_data (dict[str:dict[Any:Ans]]): a dictionary containing the answer data for all the different benchmarks.
+        energy_data (dict[str:dict[Any:list]]): a dictionary containing the energy data
+                                                for all the different benchmarks.
         parameter_name (str): the name of the parameter. This will be put on the x-axis.
         parameter_values (list[Any]): the list of all the parameter values tested.
         problems (list[str]): the different benchmarks tested.
@@ -245,13 +246,7 @@ def pareto_curve_loop(
     for problem in problems:
         energies_avg = [0.0 for _ in parameter_values]
         energies_std = [0.0 for _ in parameter_values]
-        for val, ans in ans_data[problem].items():
-            energies_val = []
-            if problem == "MIMO":
-                for trial in range(ans.config.nb_trials):
-                    energies_val.append(ans.MIMO[trial].lowest_energy[solver])
-            else:
-                energies_val = ans.energies[solver]
+        for val, energies_val in energy_data[problem].items():
             # Store the energies as a relative error to the best found
             energies_val = [
                 np.abs(energy - best_found[problem]) / (np.abs(best_found[problem]) if best_found[problem] != 0 else 1)
@@ -270,6 +265,6 @@ def pareto_curve_loop(
     plt.ylabel("Relative error to best found energy")
     plt.title(f"Pareto curve for different {parameter_name} values - {solver} solver")
     plt.legend()
-    plt.grid(which='both')
+    plt.grid(which="both")
     plt.savefig(save_folder / fig_name, bbox_inches="tight")
     plt.close()
