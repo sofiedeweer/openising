@@ -59,6 +59,19 @@ class QuantizationStage(Stage):
                 quantization_precision = self.config.quantization_precision
             scale_to_integer = self.config.scale_to_integer if hasattr(self.config, "scale_to_integer") else False
             original_J = self.ising_model.J
+            original_h = self.ising_model.h
+            # calculate the scale factor of h and map h to new range
+            if self.config.h_scale_factor == 1.0:
+                h_scale_factor_real = np.max(np.abs(original_h)) / np.max(np.abs(original_J))
+                LOGGER.info(f"h unique values: {np.unique(original_h)}")
+                original_h = original_h / h_scale_factor_real
+                h_scale_factor = h_scale_factor_real
+                LOGGER.info(
+                    f"original h scaling factor is {h_scale_factor_real}, rounded scale factor is {h_scale_factor}"
+                )
+            else:
+                h_scale_factor_real = -1
+                h_scale_factor = self.config.h_scale_factor
             quantized_J = self.quantize_matrix(
                 J=original_J,
                 original_precision=original_int_j_precision,
@@ -66,10 +79,10 @@ class QuantizationStage(Stage):
                 scale_to_integer=scale_to_integer,
             )
             quantized_h = self.quantize_matrix(
-                J=self.ising_model.h,
+                J=original_h,
                 original_precision=original_int_h_precision,
                 quantization_precision=quantization_precision,
-                scale=self.config.h_scale_factor if hasattr(self.config, "h_scale_factor") else 1.0,
+                scale=h_scale_factor,
                 scale_to_integer=scale_to_integer,
             )
             LOGGER.info(f"Quantization is enabled with precision: {quantization_precision}-bit.")
@@ -98,6 +111,10 @@ class QuantizationStage(Stage):
             ans.original_int_j_precision = original_int_j_precision
             ans.original_int_h_precision = original_int_h_precision
             ans.original_int_precision = original_precision
+            if self.config.quantization:
+                ans.h_scale_factor = h_scale_factor_real
+            else:
+                ans.h_scale_factor = None
             for solver in ans.config.solvers:
                 for energy_id in range(len(ans.energies[solver])):
                     ans.energies[solver][energy_id] = self.ising_model.evaluate(
@@ -162,8 +179,9 @@ class QuantizationStage(Stage):
         @return: a quantized matrix
         """
         # Scale J first, afterwards scale is applied to quantized values
-        J_min = int(np.min(J))
-        J_max = int(np.max(J))
+        J_min = np.min(J)
+        J_max = np.max(J)
+
         if (J_min >= 0 and J_max >= 0) or (J_min <= 0 and J_max <= 0):
             same_sign = True
         else:
@@ -214,19 +232,27 @@ class QuantizationStage(Stage):
                 step_num: int = (2**quantization_precision) - 1
                 step_num -= 1  # dismiss the most negative value
 
-        quantized_J = copy.deepcopy(J)
-        if np.abs(J_max) == np.abs(J_min):
-            step_size = np.abs(J_max - J_min) / (step_num)
-        else:
-            step_size = max(np.abs(J_max), np.abs(J_min)) / int(step_num / 2)
+        quantized_J = copy.deepcopy(J.astype(np.float64))
+        step_size = 2 * max(np.abs(J_max), np.abs(J_min)) / int(2**quantization_precision - 1)
 
-        quantization_upper_bound = quantization_lower_bound + step_num * step_size
+        quantization_lower_bound = quantization_lower_bound + step_size / 2.0
+        quantization_upper_bound = -quantization_lower_bound
         nonzero_mask = (J != 0) & (J > quantization_lower_bound) & (J < quantization_upper_bound)
+
+        quantized_J[nonzero_mask] = (
+            np.int8(np.round((J[nonzero_mask] - quantization_lower_bound) / step_size)) * step_size
+            + quantization_lower_bound
+        )
+        # Set values close to zero to zero due to round-off
+        quantized_J[nonzero_mask] = np.where(
+            np.isclose(quantized_J[nonzero_mask], 0, atol=1e-3), 0, quantized_J[nonzero_mask]
+        )
+
+        # Due to round-off, set values close to max or min value to respective value
         quantized_J[quantized_J <= quantization_lower_bound] = quantization_lower_bound
         quantized_J[quantized_J >= quantization_upper_bound] = quantization_upper_bound
-        quantized_J[nonzero_mask] = (
-            np.round((J[nonzero_mask] - quantization_lower_bound) / step_size) * step_size + quantization_lower_bound
-        )
+
+        quantized_J = quantized_J.astype(np.float32)
 
         if scale_to_integer and step_size != 0:
             quantized_J = np.round(quantized_J / step_size)
@@ -235,12 +261,6 @@ class QuantizationStage(Stage):
             f"Quantized J matrix has {len(np.unique(quantized_J))} unique values, "
             f"which exceeds the limit for "
             f"{quantization_precision}-bit quantization."
-        )
-        LOGGER.info(
-            f"Maximum absolute value original matrix: {max(J_max, np.abs(J_min))}, quantized max absolute value: {\
-                max(np.abs(np.max(quantized_J)), np.abs(np.min(quantized_J)))}. Proper scale: {\
-                max(np.abs(np.max(quantized_J)), np.abs(np.min(quantized_J)))/max(J_max, np.abs(J_min))},\
-                scale used: {scale}"
         )
         quantized_J *= scale
 

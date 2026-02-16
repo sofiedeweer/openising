@@ -115,9 +115,24 @@ class CombineNodesStage(Stage):
                     nodes_scaling * j : nodes_scaling * j + nodes_scaling,
                     nodes_scaling * i : nodes_scaling * i + nodes_scaling,
                 ] = sign * block.T
+
+            # divide h[i] over the new ndoes
+            sign_h = np.sign(h[i])
+            abs_total_h = np.abs(h[i])
+            base_h = abs_total_h // nodes_scaling
+            remainder_h = abs_total_h % nodes_scaling
             new_h[nodes_scaling * i : nodes_scaling * i + nodes_scaling] = (
-                np.ones((nodes_scaling,)) * h[i] / nodes_scaling
+                np.ones((nodes_scaling,)) * base_h
             )
+            for m in range(nodes_scaling):
+                if remainder_h > 0:
+                    new_h[nodes_scaling*i + m] += 1
+                    remainder_h -= 1
+                else:
+                    break
+            new_h[nodes_scaling * i : nodes_scaling * i + nodes_scaling] *= sign_h
+
+        # Set the diagonal elements to the maximum element available
         max_J = np.max(np.abs(new_J))
         diag_part = np.triu(np.ones((nodes_scaling, nodes_scaling)) * (max_J), 1)
         for i in range(nb_nodes):
