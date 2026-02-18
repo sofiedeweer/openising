@@ -109,12 +109,6 @@ def parse_hyperparameters(args: Namespace) -> dict[str:]:
     if"bSB" in args.solvers:
         hyperparameters["dtbSB"] = float(args.dtbSB)
 
-    # CIM parameters
-    if "CIM" in args.solvers:
-        hyperparameters["num_iterations_CIM"] = int(args.num_iterations_CIM)
-        hyperparameters["dtCIM"] = float(args.dtCIM)
-        hyperparameters["zeta"] = float(args.zeta)
-
     return hyperparameters
 
 
@@ -232,9 +226,9 @@ def approximation_to_best_found(energy: np.ndarray[float], best_found:float) -> 
 
     @return np.ndarray[float]: the approximation in percentage.
     """
-    if best_found < 0:
+    if best_found < 0.0:
         return 100*np.abs(energy) / np.abs(best_found)
-    elif best_found > 0:
+    elif best_found > 0.0:
         return 100*(1 - relative_to_best_found(energy, best_found))
     else:
-        return 1/np.ndarray([en if en != 0 else 1 for en in energy]) * 100
+        return 1/np.array([en if en != 0 else 1 for en in energy]) * 100

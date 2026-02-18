@@ -18,7 +18,6 @@ from ising.solvers.SCA import SCA
 from ising.solvers.SA import SASolver
 from ising.solvers.DSA import DSASolver
 from ising.solvers.inSitu_SA import InSituSASolver
-from ising.solvers.CIM import CIMSolver
 from ising.solvers.Multiplicative import Multiplicative
 
 
@@ -248,7 +247,6 @@ class SimulationStage(Stage):
             "SCA": (SCA().solve, ["initial_temp_SCA", "cooling_rate_SCA", "q", "r_q", "seed"]),
             "bSB": (ballisticSB().solve, ["c0", "dtbSB", "a0", "seed"]),
             "dSB": (discreteSB().solve, ["c0", "dtdSB", "a0", "seed"]),
-            "CIM": (CIMSolver().solve, ["dtCIM", "zeta", "seed"]),
         }
         if solver in solvers:
             func, params = solvers[solver]

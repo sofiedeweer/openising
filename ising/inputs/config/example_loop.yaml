@@ -88,11 +88,6 @@ dtdSB: 0.01
 a0: 1.0
 c0: 0.0
 
-# Parameters for CIM
-num_iterations_CIM: 1
-dtCIM: 0.25
-zeta: 1.0
-
 #################################
 ## Problems hyperparameters
 #################################

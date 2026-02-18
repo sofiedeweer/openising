@@ -111,13 +111,6 @@ The config file is written in YAML. It must has the following parameters:
 
 *c0:* [float] the parameter that defines the strength of the Ising part in the solver. When it is set to 0 will the optimal parameter be used.
 
-**Parameters for Coherent Ising Machine solver**
-*dtCIM*: [float] the time step used to simulate the equations.
-
-*zeta*: [float] the parameter used for displacement.
-
-*seed:* [positive int] The seed used for random number generation.
-
 ## Following parameters are required only when the targeted benchmark is TSP.
 
 *weight_constant:* penalty value added to the constraints in the TSP formulation.
