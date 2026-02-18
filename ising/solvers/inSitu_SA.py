@@ -122,5 +122,7 @@ class InSituSASolver(SolverBase):
                     total_operations=nb_operations,
                     total_time=elapsed_time,
                 )
+            else:
+                elapsed_time = time.time() - start_time
 
         return state, energy, elapsed_time, nb_operations
