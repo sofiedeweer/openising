@@ -32,7 +32,6 @@ def parse_hyperparameters(args: Namespace) -> dict[str:]:
     # Multiplicative parameters
     if "Multiplicative" in args.solvers:
         hyperparameters["num_iterations_Multiplicative"] = int(args.num_iterations_Multiplicative)
-        hyperparameters["dtMult"] = float(args.dtMult)
         hyperparameters["nb_flipping"] = int(args.nb_flipping)
         hyperparameters["cluster_threshold"] = float(args.cluster_threshold)
         hyperparameters["init_cluster_size"] = float(args.init_cluster_size)
@@ -56,7 +55,7 @@ def parse_hyperparameters(args: Namespace) -> dict[str:]:
         hyperparameters["probability_start"] = float(args.probability_start)
 
     # SA-like parameters
-    if "SA" in args.solvers or "SCA" in args.solvers or "DSA" in args.solvers:
+    if "SA" in args.solvers or "DSA" in args.solvers:
         hyperparameters["initial_temp"] = float(args.T)
 
     if "SA" in args.solvers or "DSA" in args.solvers:
@@ -92,19 +91,23 @@ def parse_hyperparameters(args: Namespace) -> dict[str:]:
             )
         else:
             hyperparameters["r_q"] = 1.0
+        hyperparameters["initial_temp_SCA"] = float(args.T_init_SCA)
         Tfin = float(args.T_final_SCA)
         hyperparameters["cooling_rate_SCA"] = (
-            return_rx(hyperparameters["num_iterations_SCA"], hyperparameters["initial_temp"], Tfin)
-            if hyperparameters["initial_temp"] != 0
+            return_rx(hyperparameters["num_iterations_SCA"], hyperparameters["initial_temp_SCA"], Tfin)
+            if hyperparameters["initial_temp_SCA"] != 0
             else 1.0
         )
 
     # SB parameters
     if "dSB" in args.solvers or "bSB" in args.solvers:
         hyperparameters["num_iterations_SB"] = int(args.num_iterations_SB)
-        hyperparameters["dtSB"] = float(args.dtSB)
         hyperparameters["a0"] = float(args.a0)
         hyperparameters["c0"] = float(args.c0)
+    if "dSB" in args.solvers:
+        hyperparameters["dtdSB"] = float(args.dtdSB)
+    if"bSB" in args.solvers:
+        hyperparameters["dtbSB"] = float(args.dtbSB)
 
     # CIM parameters
     if "CIM" in args.solvers:

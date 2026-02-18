@@ -221,7 +221,6 @@ class SimulationStage(Stage):
             "Multiplicative": (
                 Multiplicative().solve,
                 [
-                    "dtMult",
                     "seed",
                     "current",
                     "capacitance",
@@ -246,9 +245,9 @@ class SimulationStage(Stage):
             ),
             "SA": (SASolver().solve, ["initial_temp", "cooling_rate_SA", "seed"]),
             "DSA": (DSASolver().solve, ["initial_temp", "cooling_rate_SA", "seed"]),
-            "SCA": (SCA().solve, ["initial_temp", "cooling_rate_SCA", "q", "r_q", "seed"]),
-            "bSB": (ballisticSB().solve, ["c0", "dtSB", "a0", "seed"]),
-            "dSB": (discreteSB().solve, ["c0", "dtSB", "a0", "seed"]),
+            "SCA": (SCA().solve, ["initial_temp_SCA", "cooling_rate_SCA", "q", "r_q", "seed"]),
+            "bSB": (ballisticSB().solve, ["c0", "dtbSB", "a0", "seed"]),
+            "dSB": (discreteSB().solve, ["c0", "dtdSB", "a0", "seed"]),
             "CIM": (CIMSolver().solve, ["dtCIM", "zeta", "seed"]),
         }
         if solver in solvers:

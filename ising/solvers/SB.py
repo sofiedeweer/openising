@@ -46,7 +46,7 @@ class ballisticSB(SB):
         initial_state: np.ndarray,
         num_iterations: int,
         c0: float,
-        dtSB: float,
+        dtbSB: float,
         a0: float = 1.0,
         seed: int = 0,
         file: pathlib.Path | None = None,
@@ -99,7 +99,7 @@ class ballisticSB(SB):
                     initial_state=np.sign(x),
                     model=model,
                     num_iterations=num_iterations,
-                    time_step=dtSB,
+                    time_step=dtbSB,
                     a0=a0,
                     c0=c0,
                 )
@@ -111,16 +111,16 @@ class ballisticSB(SB):
                 log.log(time=0.0, energy=energy, positions=x)
             start_time = time.time()
             for _ in range(num_iterations):
-                atk = self.at(tk, a0, dtSB, num_iterations) # 4
+                atk = self.at(tk, a0, dtbSB, num_iterations) # 4
 
-                y += (-(a0 - atk) * x + c0 * np.matmul(J, x) + c0 * h) * dtSB
+                y += (-(a0 - atk) * x + c0 * np.matmul(J, x) + c0 * h) * dtbSB
                 # 1 + N + 2*N**2 + N + N + 2*N + N= 2*N**2 + 6*N + 1
-                x += self.update_x(y, dtSB, a0) # N+1
+                x += self.update_x(y, dtbSB, a0) # N+1
 
                 y = np.where(np.abs(x) >= 1, 0, y) # N
                 x = np.where(np.abs(x) >= 1, np.sign(x), x) # N
 
-                tk += dtSB # 1
+                tk += dtbSB # 1
                 if log.filename is not None:
                     sample = np.sign(x)
                     energy = model.evaluate(sample)
@@ -153,7 +153,7 @@ class discreteSB(SB):
         initial_state: np.ndarray,
         num_iterations: int,
         c0: float,
-        dtSB: float,
+        dtdSB: float,
         a0: float = 1.0,
         seed: int = 0,
         file: pathlib.Path | None = None,
@@ -205,7 +205,7 @@ class discreteSB(SB):
                     initial_state=np.sign(x),
                     model=model,
                     num_iterations=num_iterations,
-                    time_step=dtSB,
+                    time_step=dtdSB,
                     a0=a0,
                     c0=c0,
                 )
@@ -214,16 +214,16 @@ class discreteSB(SB):
                 log.log(time=0.0, energy=energy, positions=x)
             start_time = time.time()
             for i in range(num_iterations):
-                atk = self.at(tk, a0, dtSB, num_iterations) # 3
+                atk = self.at(tk, a0, dtdSB, num_iterations) # 3
 
-                y += (-(a0 - atk) * x + c0 * np.matmul(J, np.sign(x)) + c0 * h) * dtSB
+                y += (-(a0 - atk) * x + c0 * np.matmul(J, np.sign(x)) + c0 * h) * dtdSB
                 # 1+N + 2*N**2 + N + N + 2*N + N = 2*N**2 + 6*N + 1
-                x += self.update_x(y, dtSB, a0) # N+1
+                x += self.update_x(y, dtdSB, a0) # N+1
 
                 y = np.where(np.abs(x) >= 1, 0, y) # N
                 x = np.where(np.abs(x) >= 1, np.sign(x), x) # N
 
-                tk += dtSB # 1
+                tk += dtdSB # 1
                 if log.filename is not None:
                     elapsed_time = time.time() - start_time
                     sample = np.sign(x)

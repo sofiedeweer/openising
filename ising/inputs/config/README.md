@@ -39,7 +39,7 @@ The config file is written in YAML. It must has the following parameters:
 
 **Parameters for SCA solver**
 
-*T:* [float] initial temperature for the annealing solvers (in-Situ SA, SA and SCA).
+*T_init_SCA:* [float] initial temperature for the annealing solvers (in-Situ SA, SA and SCA).
 
 *T_final:* [float] final temperature, which should be lower than *T*, for the annealing solvers (in-Situ SA, SA and SCA).
 
@@ -58,8 +58,6 @@ The config file is written in YAML. It must has the following parameters:
 *seed:* [int] the seed used for random number generation. This is important to be able to recreate results.
 
 **Parameters for Multiplicative solver**
-
-*dtMult:* [float] time step for the Multiplicative solver.
 
 *nb_flipping:* [int] amount of times flipping will be done. 
 
@@ -105,7 +103,9 @@ The config file is written in YAML. It must has the following parameters:
 
 **Parameters for SB (bSB/dSB) solver**
 
-*dtSB:* [float] the time step used in the Simulated Bifurcation solvers (dSB and bSB).
+*dtbSB:* [float] the time step used in the ballistic Simulated Bifurcation solver.
+
+*dtdSB:* [float] the time step used in the discrete Simulated Bifurcation solver.
 
 *a0:* [float] the bifurcation parameter to which a(t) will converge to. Defaults to 1.
 

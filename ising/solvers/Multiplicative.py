@@ -240,7 +240,6 @@ class Multiplicative(SolverBase):
         self,
         model: IsingModel,
         initial_state: np.ndarray,
-        dtMult: float,
         num_iterations: int,
         nb_flipping: int,
         cluster_threshold: float,
@@ -265,7 +264,6 @@ class Multiplicative(SolverBase):
 
         @param model (IsingModel): the model to solve.
         @param initial_state (np.ndarray): the initial spins of the nodes.
-        @param dtMult (float): time step.
         @param num_iterations (int): the number of iterations.
         @param nb_flipping (int): the number of flipping iterations.
         @param cluster_threshold (float): the threshold for clustering.

@@ -40,6 +40,7 @@ seed: 100
 
 # Parameters for SCA
 num_iterations_SCA: 1
+T_init_SCA: 50.0
 T_final_SCA: 0.5
 q: 0.0
 q_final: 10.0
@@ -52,7 +53,6 @@ nb_flips: 1
 
 # Parameters for Multiplicative
 num_iterations_Multiplicative: 1
-dtMult: 0.01
 nb_flipping: 100
 cluster_threshold: 0.3
 init_cluster_size: 0.8
@@ -78,7 +78,8 @@ probability_start: 0.001799
 
 # Parameters for SB
 num_iterations_SB: 1
-dtSB: 0.01
+dtbSB: 0.01
+dtdSB: 0.01
 a0: 1.0
 c0: 0.0
 

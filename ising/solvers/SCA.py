@@ -20,7 +20,7 @@ class SCA(SolverBase):
         model: IsingModel,
         initial_state: np.ndarray,
         num_iterations: int,
-        initial_temp: float,
+        initial_temp_SCA: float,
         cooling_rate_SCA: float,
         q: float,
         r_q: float,
@@ -69,7 +69,7 @@ class SCA(SolverBase):
                     initial_state=state,
                     model=model,
                     num_iterations=num_iterations,
-                    initial_temp=initial_temp,
+                    initial_temp=initial_temp_SCA,
                     cooling_rate=cooling_rate_SCA,
                     initial_penalty=q,
                     penalty_increase=r_q,
@@ -77,7 +77,7 @@ class SCA(SolverBase):
                 )
 
             start_time = time.time()
-            T = initial_temp
+            T = initial_temp_SCA
             if log.filename is not None:
                 energy = model.evaluate(state.astype(np.float32))
                 log.log(time=0.0, energy=energy, state=state)
