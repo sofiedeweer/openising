@@ -13,8 +13,8 @@ and strategies in software and hardware.
 ### **Setup**
  
 ```bash
-git clone git@gitlab.esat.kuleuven.be:ising-project/ising.git
-cd ising
+git clone git@github.com:KULeuven-MICAS/openising.git
+cd openising
 source .setup
 ```
 
