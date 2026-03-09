@@ -258,13 +258,15 @@ def pareto_curve_loop(
             parameter_values,
             energies_avg,
             yerr=energies_std,
+            marker="o",
             label=f"{problem}",
         )
     plt.yscale("log")
-    plt.xlabel(parameter_name)
-    plt.ylabel("Relative error to best found energy")
-    plt.title(f"Pareto curve for different {parameter_name} values - {solver} solver")
-    plt.legend()
-    plt.grid(which="both")
+    plt.ylim(1e-4, 1e5)
+    plt.xlabel(parameter_name, fontsize=15)
+    plt.ylabel("Relative error to best found energy", fontsize=15)
+    plt.title(f"Pareto curve for different {parameter_name} values - {solver} solver", fontsize=15)
+    plt.legend(fontsize=15)
+    plt.grid(which="major")
     plt.savefig(save_folder / fig_name, bbox_inches="tight")
     plt.close()

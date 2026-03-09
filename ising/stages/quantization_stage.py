@@ -63,9 +63,8 @@ class QuantizationStage(Stage):
             # calculate the scale factor of h and map h to new range
             if self.config.h_scale_factor == 1.0:
                 h_scale_factor_real = np.max(np.abs(original_h)) / np.max(np.abs(original_J))
-                LOGGER.info(f"h unique values: {np.unique(original_h)}")
-                original_h = original_h / h_scale_factor_real
                 h_scale_factor = h_scale_factor_real
+                original_h = original_h / h_scale_factor
                 LOGGER.info(
                     f"original h scaling factor is {h_scale_factor_real}, rounded scale factor is {h_scale_factor}"
                 )
@@ -236,12 +235,11 @@ class QuantizationStage(Stage):
         step_size = 2 * max(np.abs(J_max), np.abs(J_min)) / int(2**quantization_precision - 1)
 
         quantization_lower_bound = quantization_lower_bound + step_size / 2.0
-        quantization_upper_bound = -quantization_lower_bound
+        quantization_upper_bound = np.abs(quantization_lower_bound)
         nonzero_mask = (J != 0) & (J > quantization_lower_bound) & (J < quantization_upper_bound)
 
         quantized_J[nonzero_mask] = (
-            np.int8(np.round((J[nonzero_mask] - quantization_lower_bound) / step_size)) * step_size
-            + quantization_lower_bound
+            np.round((J[nonzero_mask] - quantization_lower_bound) / step_size) * step_size + quantization_lower_bound
         )
         # Set values close to zero to zero due to round-off
         quantized_J[nonzero_mask] = np.where(
