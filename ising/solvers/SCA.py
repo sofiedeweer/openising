@@ -127,6 +127,13 @@ class SCA(SolverBase):
         Returns:
             probability (np.ndarray): probability of accepting the change of all nodes.
         """
-        val = 1/T * (hs*sample + q)/2
-        probs = 1 / (1 + np.exp(-val))
+        val = (hs*sample + q)
+        probs = np.zeros_like(val)
+        for i, value in enumerate(val):
+            if value >= -2*T and value <= 2*T:
+                probs[i] = value / (4*T) + 0.5
+            elif value > 2*T:
+                probs[i] = 1
+            else:
+                probs[i] = 0
         return probs

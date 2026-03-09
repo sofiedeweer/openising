@@ -243,7 +243,7 @@ class SimulationStage(Stage):
                 ["initial_temp_inSituSA", "cooling_rate_inSituSA", "nb_flips", "seed"],
             ),
             "SA": (SASolver().solve, ["initial_temp", "cooling_rate_SA", "seed"]),
-            "DSA": (DSASolver().solve, ["initial_temp", "cooling_rate_SA", "seed"]),
+            "DSA": (DSASolver().solve, ["initial_temp", "cooling_rate_DSA", "seed"]),
             "SCA": (SCA().solve, ["initial_temp_SCA", "cooling_rate_SCA", "q", "r_q", "seed"]),
             "bSB": (ballisticSB().solve, ["c0", "dtbSB", "a0", "seed"]),
             "dSB": (discreteSB().solve, ["c0", "dtdSB", "a0", "seed"]),

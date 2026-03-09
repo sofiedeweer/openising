@@ -58,7 +58,7 @@ def parse_hyperparameters(args: Namespace) -> dict[str:]:
     if "SA" in args.solvers or "DSA" in args.solvers:
         hyperparameters["initial_temp"] = float(args.T)
 
-    if "SA" in args.solvers or "DSA" in args.solvers:
+    if "SA" in args.solvers:
         hyperparameters["num_iterations_SA"] = int(args.num_iterations_SA)
         Tfin = float(args.T_final)
         hyperparameters["cooling_rate_SA"] = (
@@ -66,6 +66,15 @@ def parse_hyperparameters(args: Namespace) -> dict[str:]:
             if hyperparameters["initial_temp"] != 0
             else 1.0
         )
+    if "DSA" in args.solvers:
+        hyperparameters["num_iterations_DSA"] = int(args.num_iterations_DSA)
+        Tfin = float(args.T_final)
+        hyperparameters["cooling_rate_DSA"] = (
+            return_rx(hyperparameters["num_iterations_DSA"], hyperparameters["initial_temp"], Tfin)
+            if hyperparameters["initial_temp"] != 0
+            else 1.0
+        )
+
 
     # in-Situ SA parameters
     if "inSituSA" in args.solvers:
@@ -226,9 +235,26 @@ def approximation_to_best_found(energy: np.ndarray[float], best_found:float) -> 
 
     @return np.ndarray[float]: the approximation in percentage.
     """
-    if best_found < 0.0:
-        return 100*np.abs(energy) / np.abs(best_found)
-    elif best_found > 0.0:
+    if best_found != 0.0:
         return 100*(1 - relative_to_best_found(energy, best_found))
     else:
         return 1/np.array([en if en != 0 else 1 for en in energy]) * 100
+
+def compute_ttt(energies:np.ndarray, computation_time:float, best_found:float, nb_runs:int, target:float=0.9) -> float:
+    """Computes the time to target of a set of energies and the average computation time.
+
+    @param energies (np.ndarray): set of solution energies
+    @param computation_time (float): average computation time over all runs.
+    @param best_found (float): best reported solution of problem
+    @param nb_runs (int): amount of runs the solver went through.
+    @param target (float): target value from best found. Default set to 0.9.
+
+    @returns ttt (float): time to target.
+    """
+    result = computation_time * np.log(1 - target)
+    rel_error = relative_to_best_found(np.array(energies), best_found)
+    if ((np.max(rel_error) > (1-target)) and np.min(rel_error) <= (1-target)) or np.min(rel_error) > (1-target):
+        denom = np.log(1 - np.sum(rel_error <= 0.1) / nb_runs)
+    else:
+        denom = np.log(1-target)
+    return result / denom

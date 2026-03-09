@@ -71,9 +71,7 @@ class BRIM(SolverBase):
         dv = np.zeros_like(vt, dtype=np.float32)
         if self.do_flipping:
             flip = (self.flip_voltages - vt) / self.resistance
-            dv = np.where(
-                self.chosen_flips, flip / self.capacitance, 1 / self.capacitance * ((Ka * coupling) @ vt - z)
-            )
+            dv = np.where(self.chosen_flips, flip / self.capacitance, 1 / self.capacitance * ((Ka * coupling) @ vt - z))
         else:
             dv = 1 / self.capacitance * ((Ka * coupling) @ vt - z)
 
@@ -136,6 +134,9 @@ class BRIM(SolverBase):
             self.bias = False
         coupling = triu_to_symm(new_model.J).astype(np.float32) / resistance
 
+        res_average = np.mean(np.sum(coupling, axis=1))
+        tau = 1 / (res_average * capacitance)
+
         # Make sure the correct seed is used
         if seed == 0:
             seed = int(time.time())
@@ -169,6 +170,10 @@ class BRIM(SolverBase):
         self.chosen_flips = np.zeros(self.num_variables + int(self.bias), dtype=bool)
         self.flip_voltages = np.zeros(self.num_variables + int(self.bias), dtype=np.float32)
         self.flip_counts = -np.ones(self.num_variables + int(self.bias), dtype=np.int32)
+
+        # operation count param
+        time_zero = 0
+        nb_operations = 0
 
         with HDF5Logger(file, schema) as log:
             # Log the initial metadata
@@ -216,6 +221,9 @@ class BRIM(SolverBase):
                     sample = np.sign(new_voltages[: model.num_variables])
                     energy = model.evaluate(sample)
                     log.log(time=tk, energy=energy)
+                if tk - time_zero >= tau:
+                    time_zero = tk
+                    nb_operations += 2 * model.num_variables**2 + 3 * model.num_variables
 
                 # Update criterion changes
                 if i > 0:
@@ -226,13 +234,19 @@ class BRIM(SolverBase):
                 i += 1
 
             # Make sure to log to the last iteration if the stop criterion is reached
-            if max_change < stop_criterion and log.filename is not None:
+            if max_change < stop_criterion:
                 for j in range(i, num_iterations):
                     tk = t_eval[j]
-                    log.log(time=tk, energy=energy)
+                    if log.filename is not None:
+                        log.log(time=tk, energy=energy)
+                    if tk - time_zero >= tau:
+                        time_zero = tk
+                        nb_operations += 2 * model.num_variables**2 + 3 * model.num_variables
             if log.filename is not None:
-                log.write_metadata(solution_state=sample, solution_energy=energy, total_time=t_eval[-1])
+                log.write_metadata(
+                    solution_state=sample, solution_energy=energy, total_time=t_eval[-1], total_operations=nb_operations
+                )
             else:
                 sample = np.sign(new_voltages[: model.num_variables])
                 energy = model.evaluate(np.sign(new_voltages[: model.num_variables]))
-        return sample, energy, tend, -1
+        return sample, energy, tend, nb_operations
