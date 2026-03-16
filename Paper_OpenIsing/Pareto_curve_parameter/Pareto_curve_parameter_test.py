@@ -32,7 +32,7 @@ logging.basicConfig(level=logging_level, format=logging_format, stream=sys.stdou
 # Input file directory
 test_parameter = "dtSB"
 
-problem_type = ["Maxcut", "TSP", "QKP", "MIMO"]  # Specify the problem type [Maxcut, TSP, ATSP, MIMO, QKP]
+problem_type = ["Maxcut", "TSP", "QKP"]  # Specify the problem type [Maxcut, TSP, ATSP, MIMO, QKP]
 nb_benchmarks = 3
 # Create folders for correct saving
 save_folder_base = BASE_PATH / "Pareto_curve_parameter"

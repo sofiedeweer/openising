@@ -246,7 +246,7 @@ def pareto_curve_loop(
     bar_pos = [-0.4, 0, 0.4]
     bar_width = 0.4
     x = np.arange(0, (4 * bar_width) * len(parameter_values), bar_width * 4)
-    for solver in ans_data[problems[0]][parameter_values[0]][0].config["solvers"]:
+    for solver in ans_data[problems[0]][parameter_values[0]][0].config.solvers:
         plt.figure()
         fig, ax = plt.subplots()
         # ax = fig.get_axes()[0]

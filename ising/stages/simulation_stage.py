@@ -237,6 +237,8 @@ class SimulationStage(Stage):
                     "delay_offset",
                     "sigma_J",
                     "sigma_C",
+                    "combine_nodes",
+                    "nb_splits"
                 ],
             ),
             "inSituSA": (
@@ -252,9 +254,7 @@ class SimulationStage(Stage):
         if solver in solvers:
             func, params = solvers[solver]
             chosen_hyperparameters = {key: hyperparameters[key] for key in params if key in hyperparameters}
-            if solver == "Multiplicative":
-                chosen_hyperparameters["combine_nodes"] = self.config.combine_nodes
-                chosen_hyperparameters["nb_splits"] = self.config.nodes_scaling
+
             optim_state: np.ndarray
             optim_energy: float | None
             optim_state, optim_energy, computation_time, operation_count = func(
