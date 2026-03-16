@@ -251,10 +251,11 @@ def compute_ttt(energies:np.ndarray, computation_time:float, best_found:float, n
 
     @returns ttt (float): time to target.
     """
-    result = computation_time * np.log(1 - target)
+    result = computation_time * np.log(1 - 0.99)
     rel_error = relative_to_best_found(np.array(energies), best_found)
-    if ((np.max(rel_error) > (1-target)) and np.min(rel_error) <= (1-target)) or np.min(rel_error) > (1-target):
-        denom = np.log(1 - np.sum(rel_error <= 0.1) / nb_runs)
+    P_s = np.sum(rel_error <= (1-target)) / nb_runs
+    if P_s >= 0.99:
+        denom = np.log(1 - 0.99)
     else:
-        denom = np.log(1-target)
+        denom = np.log(1-P_s)
     return result / denom

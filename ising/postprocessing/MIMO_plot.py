@@ -32,7 +32,7 @@ def plot_error_SNR(
     markers = Line2D.markers
     markers = list(markers.keys())
 
-    plt.figure()
+    fig = plt.figure()
     for solver_name, error in ans_BER.items():
         plt.semilogy(
             SNR_values, error, markers[list(ans_BER.keys()).index(solver_name)], linestyle="-", label=solver_name,
@@ -42,7 +42,10 @@ def plot_error_SNR(
     plt.xticks(SNR_values)
     plt.ylabel("Bit Error Rate")
     plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
-    plt.grid(which="major")
+    ax = fig.get_axes()[0]
+    x_left, x_right = ax.get_xlim()
+    y_low, y_high = ax.get_ylim()
+    ax.set_aspect(0.1*abs((x_right-x_left)/(y_low-y_high)))
     if save:
         plt.savefig(save_folder / f"{fig_name}.pdf", dpi=600, bbox_inches="tight")
     plt.close()
