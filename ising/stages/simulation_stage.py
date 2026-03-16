@@ -7,6 +7,7 @@ import tqdm
 import pathlib
 import os
 import multiprocessing
+import pickle
 
 from ising.stages.stage import Stage, StageCallable
 from ising.stages.model.ising import IsingModel
@@ -292,3 +293,13 @@ class Ans(metaclass=ABCMeta):
         if name in self._attributes:
             return self._attributes[name]
         raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+
+    def save(self, file:pathlib.Path):
+        with file.open("wb") as f:
+            pickle.dump(self._attributes, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def load(self, file):
+        with file.open("rb") as f:
+            attr:dict = pickle.load(f)
+        for name, val in attr.items():
+            self._attributes[name] = val

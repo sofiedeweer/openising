@@ -9,6 +9,7 @@ from typing import Any
 from ising.utils.HDF5Logger import return_metadata
 from ising.postprocessing.helper_functions import get_metadata_from_logfiles
 from ising.stages.simulation_stage import Ans
+from ising.utils.flow import relative_to_best_found
 
 
 def summary_energies(logfiles: list[pathlib.Path], save_dir: pathlib.Path) -> None:
@@ -220,14 +221,12 @@ def histogram_energies_loop(
 
 
 def pareto_curve_loop(
-    energy_data: dict[str : dict[Any:list]],
+    ans_data: dict[str : dict[Any : list[Ans]]],
     parameter_name: str,
     parameter_values: list[Any],
     problems: list[str],
-    best_found: dict[str:float],
     save_folder: pathlib.Path,
     fig_name: str,
-    solver: str,
 ):
     """Plots the pareto curve for a parameter from a solver over different benchmarks.
 
@@ -242,31 +241,63 @@ def pareto_curve_loop(
         fig_name (str): name of the figure to save.
         solver (str): the solver to plot the pareto curve for.
     """
-    plt.figure()
-    for problem in problems:
-        energies_avg = [0.0 for _ in parameter_values]
-        energies_std = [0.0 for _ in parameter_values]
-        for val, energies_val in energy_data[problem].items():
-            # Store the energies as a relative error to the best found
-            energies_val = [
-                np.abs(energy - best_found[problem]) / (np.abs(best_found[problem]) if best_found[problem] != 0 else 1)
-                for energy in energies_val
-            ]
-            energies_avg[parameter_values.index(val)] = np.mean(energies_val)
-            energies_std[parameter_values.index(val)] = np.std(energies_val)
-        plt.errorbar(
-            parameter_values,
-            energies_avg,
-            yerr=energies_std,
-            marker="o",
-            label=f"{problem}",
-        )
-    plt.yscale("log")
-    plt.ylim(1e-4, 1e5)
-    plt.xlabel(parameter_name, fontsize=15)
-    plt.ylabel("Relative error to best found energy", fontsize=15)
-    plt.title(f"Pareto curve for different {parameter_name} values - {solver} solver", fontsize=15)
-    plt.legend(fontsize=15)
-    plt.grid(which="major")
-    plt.savefig(save_folder / fig_name, bbox_inches="tight")
-    plt.close()
+    colors = ["tab:blue", "tab:orange", "tab:green", "tab:grey"]
+    error_colors = ["darkblue", "chocolate", "darkgreen"]
+    bar_pos = [-0.4, 0, 0.4]
+    bar_width = 0.4
+    x = np.arange(0, (4 * bar_width) * len(parameter_values), bar_width * 4)
+    for solver in ans_data[problems[0]][parameter_values[0]][0].config["solvers"]:
+        plt.figure()
+        fig, ax = plt.subplots()
+        # ax = fig.get_axes()[0]
+        ax2 = ax.twinx()
+        for ind, problem in enumerate(problems):
+            energies_avg = {val: 0.0 for val in parameter_values}
+            energies_std = {val: 0.0 for val in parameter_values}
+            for val, ans_list in ans_data[problem].items():
+                # Store the energies as a relative error to the best found
+                energies = np.array([])
+                for ans in ans_list:
+                    energies = np.append(
+                        energies, relative_to_best_found(np.array(ans.energies[solver]), ans.best_found)
+                    )
+
+                energies_avg[val] = np.mean(energies)
+                energies_std[val] = np.std(energies)
+            if problem != "MIMO":
+                ax.bar(
+                    x + bar_pos[ind], energies_avg, width=bar_width, color=colors[ind], bottom=np.ones_like(x) * (1e-4)
+                )
+                ax.errorbar(
+                    x + bar_pos[ind],
+                    energies_avg,
+                    yerr=energies_std,
+                    color=error_colors[ind],
+                    fmt="o",
+                    label=str(problem),
+                )
+            else:
+                ax2.errorbar(
+                    x,
+                    energies_avg,
+                    yerr=energies_std,
+                    color=colors[ind],
+                    linestyle="--",
+                    marker="*",
+                    label=str(problem),
+                )
+                ax2.set_ylabel("Bit Error Rate", color=colors[ind], fontsize=15)
+        ax.set_yscale("log")
+        ax2.set_yscale("log")
+        ax.set_ylim(1e-4, 1e5)
+        ax2.set_ylim(1e-4, 1)
+        ax.set_xticks(x, [str(val) for val in parameter_values])
+        ax.set_xlabel(parameter_name, fontsize=15)
+        ax.set_ylabel("Relative distance to best found energy", fontsize=15)
+        ax.set_title(f"Pareto curve for different {parameter_name} values - {solver} solver", fontsize=15)
+        handles1, labels1 = ax.get_legend_handles_labels()
+        handles2, labels2 = ax2.get_legend_handles_labels()
+        leg = ax2.legend(handles1 + handles2, labels1 + labels2, fontsize=15, loc="upper left")
+        leg.set_zorder(100)
+        fig.savefig(save_folder / fig_name, bbox_inches="tight", dpi=600)
+        plt.close()

@@ -5,9 +5,14 @@
 # Benchmark file name
 benchmark: 
   - ./ising/benchmarks/G/G1.txt
+  - ./ising/benchmarks/G/G6.txt
+  - ./ising/benchmarks/G/G14.txt
   - ./ising/benchmarks/TSP/burma14.tsp
+  - ./ising/benchmarks/TSP/ulysses16.tsp
+  - ./ising/benchmarks/TSP/ulysses22.tsp
   - ./ising/benchmarks/Knapsack/jeu_100_25_1.txt
-  - ./ising/benchmarks/MIMO/user128_ant128_M4.txt
+  - ./ising/benchmarks/Knapsack/jeu_200_25_1.txt
+  - ./ising/benchmarks/Knapsack/jeu_100_50_1.txt
 
 # Solver to use: [BRIM, SA, DSA, inSituSA, bSB, dSB, SCA, Multiplicative, CIM, all]
 solvers:
