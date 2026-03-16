@@ -1,0 +1,146 @@
+#################################
+## General parameters
+#################################
+
+# Benchmark file name
+benchmark: ./ising/benchmarks/MIMO/user5_ant5_M16.txt
+
+# Solver to use: [BRIM, SA, DSA, inSituSA, bSB, dSB, SCA, Multiplicative, CIM, all]
+solvers:
+  - bSB
+  - dSB
+  - SCA
+  - SA
+  - inSituSA
+  - BRIM
+
+# Number of trials
+nb_runs: 1
+
+# Use gurobi or not
+use_gurobi: False
+
+# Use multiprocessing or not
+use_multiprocessing: False
+
+nb_cores: 16
+
+# Initialization seed or use eigenvector of matrix
+initialization_seed: 42
+eigenvalue_start: False
+
+# Logging or not
+gen_logfile: False
+logfile_discrimination: None
+
+#################################
+## Solvers hyperparameters
+#################################
+
+# Parameters for SA
+num_iterations_SA: 50000
+T: 150.0
+T_final: 0.05
+seed: 100
+
+# Parameters for SCA
+num_iterations_SCA: 10000
+T_init_SCA: 50.0
+T_final_SCA: 0.5
+q: -1.0
+q_final: -1.0
+
+# Parameters for in-Situ SA
+initial_temp_inSituSA: 690
+T_final_inSituSA: 0.5
+num_iterations_inSituSA: 5000
+nb_flips: 10
+
+# Parameters for BRIM
+num_iterations_BRIM: 500000
+dtBRIM: 2.2e-11  # 10us
+capacitance: 49e-15
+stop_criterion: 1e-6  # 1uV
+resistance: 31e3
+do_flipping: True
+coupling_annealing: True
+probability_start: 1e-1
+
+# Parameters for SB
+num_iterations_SB: 5000
+dtbSB: 0.5
+dtdSB: 0.75
+a0: 1.0
+c0: 0.0
+
+#################################
+## Problems hyperparameters
+#################################
+
+# Parameters for TSP
+weight_constant: 0
+
+# Parameters for MIMO
+SNR: 10
+nb_trials: 2500
+mimo_seed: 12
+is_hamming_encoding: False
+
+#################################
+## Specific Stages hyperparameters
+#################################
+
+# Parameters for quantization stage
+quantization: False
+quantization_precision: 1.5
+scale_to_integer: False
+
+# Parameters for npmos stage
+offset_type: others
+offset_ratio: 0.3
+
+# Parameters for noise stage
+device_noise: False
+noise_level: 0.1
+
+# Parameters for mismatch stage
+mismatch_std: 0.0
+
+# Parameters for combine nodes stage
+combine_nodes: False
+nodes_scaling: 2
+
+#################################
+## Dummy creator hyperparameters
+#################################
+dummy_creator: True
+
+# Parameters for dummy MIMO
+dummy_seed: 42
+dummy_qam: 16
+dummy_snr: 
+  - -5
+  - 0
+  - 2
+  - 5
+  - 8
+  - 10
+dummy_spacing: 1.0
+dummy_user_num: 16
+dummy_ant_num: 32
+dummy_case_num: 2500
+
+# Parameters for dummy MaxCut
+dummy_quadratic: False
+dummy_local_optima: False
+
+# Parameters for dummy MaxCut/TSP/ATSP/Knapsack
+dummy_size: 20
+
+# for TSP/ATSP
+dummy_weight_constant: 0.0
+
+# for dummy Knapsack
+dummy_density: 1
+dummy_penalty_value: 1.0
+dummy_bit_width: 16

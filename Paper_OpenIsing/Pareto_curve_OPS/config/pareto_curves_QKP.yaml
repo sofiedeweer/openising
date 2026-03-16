@@ -1,0 +1,161 @@
+#################################
+## General parameters
+#################################
+
+# Benchmark file name
+benchmark: ./ising/benchmarks/Knapsack/jeu_100_25_1.txt
+
+# Solver to use: [BRIM, SA, DSA, inSituSA, bSB, dSB, SCA, Multiplicative, CIM, all]
+solvers:
+  - bSB
+  - dSB
+  - SA
+  - inSituSA
+  - SCA
+  - BRIM
+
+# Number of trials
+nb_runs: 100
+
+# Use gurobi or not
+use_gurobi: False
+
+# Use multiprocessing or not
+use_multiprocessing: False
+
+nb_cores: 10
+
+# Initialization seed or use eigenvector of matrix
+initialization_seed: 42
+eigenvalue_start: False
+
+# Logging or not
+gen_logfile: False
+logfile_discrimination: None
+
+#################################
+## Solvers hyperparameters
+#################################
+
+# Parameters for SA
+num_iterations_SA: 
+  - 50
+  - 100
+  - 1000
+  - 5000
+  - 100000
+T: 150.0
+T_final: 0.05
+seed: 100
+
+# Parameters for SCA
+num_iterations_SCA: 
+  - 500
+  - 1000
+  - 5000
+  - 10000
+  - 50000
+T_final_SCA: 0.5
+T_init_SCA: 50.0
+q: -1.0
+q_final: -1.0
+
+# Parameters for in-Situ SA
+initial_temp_inSituSA: 690
+T_final_inSituSA: 0.5
+num_iterations_inSituSA: 
+  - 50
+  - 100
+  - 500
+  - 1000
+  - 5000
+nb_flips: 10
+
+# Parameters for BRIM
+num_iterations_BRIM: 
+  - 500
+  - 5000
+  - 50000
+  - 500000
+  - 5000000
+dtBRIM: 2.2e-11
+stop_criterion: 1e-10  # 1uV
+resistance: 31e3
+capacitance: 49e-15
+do_flipping: True
+coupling_annealing: True
+seed: 100
+probability_start: 1e-1
+
+# Parameters for SB
+num_iterations_SB: 
+  - 500
+  - 1000
+  - 5000
+  - 10000
+  - 15000
+dtdSB: 0.5
+dtbSB: 0.75
+a0: 1.0
+c0: 0.0
+
+#################################
+## Problems hyperparameters
+#################################
+
+# Parameters for TSP
+weight_constant: 0
+
+# Parameters for MIMO
+SNR: 10
+nb_trials: 100
+mimo_seed: 12
+is_hamming_encoding: False
+
+#################################
+## Specific Stages hyperparameters
+#################################
+
+# Parameters for quantization stage
+quantization: False
+quantization_precision: 1.5
+combine_nodes: False
+
+# Parameters for npmos stage
+offset_type: others
+offset_ratio: 0.3
+
+# Parameters for noise stage
+device_noise: False
+noise_level: 0.1
+
+# Parameters for mismatch stage
+mismatch_std: 0.0
+
+#################################
+## Dummy creator hyperparameters
+#################################
+dummy_creator: False
+
+# Parameters for dummy MIMO
+dummy_seed: 42
+dummy_qam: 4
+dummy_snr: 8
+dummy_user_num: 16
+dummy_ant_num: 64
+dummy_case_num: 10
+
+# Parameters for dummy MaxCut
+dummy_quadratic: False
+dummy_local_optima: False
+
+# Parameters for dummy MaxCut/TSP/ATSP/Knapsack
+dummy_size: 20
+
+# for TSP/ATSP
+dummy_weight_constant: 0.0
+
+# for dummy Knapsack
+dummy_density: 1
+dummy_penalty_value: 1.0
+dummy_bit_width: 16
