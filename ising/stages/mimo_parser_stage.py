@@ -81,7 +81,7 @@ class MIMOParserStage(Stage):
                 ans_all.computation_time[solver] += ans.computation_time[solver]
                 diff[solver][:, run] = ans.difference[solver]
         x_hat_ZF = ZF().solve(H, y, M)
-        diff_ZF = x - x_hat_ZF
+        diff_ZF = x[:, :case_num] - x_hat_ZF
         ans_all.ber_of_trials["ZF"] = np.sum(np.abs(np.real(diff_ZF)) / 2 + np.abs(np.imag(diff_ZF)) / 2, axis=0) / (
             np.log2(M) * user_num
         )
