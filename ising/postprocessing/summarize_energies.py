@@ -241,9 +241,8 @@ def pareto_curve_loop(
         fig_name (str): name of the figure to save.
         solver (str): the solver to plot the pareto curve for.
     """
-    colors = ["tab:blue", "tab:orange", "tab:green", "tab:grey"]
-    error_colors = ["darkblue", "chocolate", "darkgreen"]
-    bar_pos = [-0.4, 0, 0.4]
+    colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:grey"]
+    error_colors = ["darkblue", "chocolate", "darkgreen", "maroon"]
     bar_width = 0.4
     x = np.arange(0, (4 * bar_width) * len(parameter_values), bar_width * 4)
     for solver in ans_data[problems[0]][parameter_values[0]][0].config.solvers:
@@ -264,33 +263,37 @@ def pareto_curve_loop(
 
                 energies_avg[val] = np.mean(energies)
                 energies_std[val] = np.std(energies)
+            energies_avg = [energies_avg[val] for val in parameter_values]
+            energies_std = [energies_std[val] for val in parameter_values]
             if problem != "MIMO":
-                ax.bar(
-                    x + bar_pos[ind], energies_avg, width=bar_width, color=colors[ind], bottom=np.ones_like(x) * (1e-4)
-                )
-                ax.errorbar(
-                    x + bar_pos[ind],
+                ax.plot(
+                    x,
                     energies_avg,
-                    yerr=energies_std,
-                    color=error_colors[ind],
+                    color=colors[ind],
                     fmt="o",
                     label=str(problem),
                 )
-            else:
-                ax2.errorbar(
+                ax.fill_between(
                     x,
-                    energies_avg,
-                    yerr=energies_std,
-                    color=colors[ind],
-                    linestyle="--",
-                    marker="*",
-                    label=str(problem),
+                    energies_avg-energies_std,
+                    energies_avg+energies_std,
+                    color=error_colors[ind],
                 )
-                ax2.set_ylabel("Bit Error Rate", color=colors[ind], fontsize=15)
+            # else:
+            #     ax2.errorbar(
+            #         x,
+            #         energies_avg,
+            #         yerr=energies_std,
+            #         color=colors[ind],
+            #         linestyle="--",
+            #         marker="*",
+            #         label=str(problem),
+            #     )
+            #     ax2.set_ylabel("Bit Error Rate", color=colors[ind], fontsize=15)
         ax.set_yscale("log")
-        ax2.set_yscale("log")
+        # ax2.set_yscale("log")
         ax.set_ylim(1e-4, 1e5)
-        ax2.set_ylim(1e-4, 1)
+        # ax2.set_ylim(1e-4, 1)
         ax.set_xticks(x, [str(val) for val in parameter_values])
         ax.set_xlabel(parameter_name, fontsize=15)
         ax.set_ylabel("Relative distance to best found energy", fontsize=15)
