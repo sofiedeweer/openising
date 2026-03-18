@@ -7,6 +7,9 @@ benchmark:
   - ./ising/benchmarks/G/G1.txt
   - ./ising/benchmarks/G/G6.txt
   - ./ising/benchmarks/G/G14.txt
+  - ./ising/benchmarks/biqmac/be/be100.1.sparse
+  - ./ising/benchmarks/biqmac/beasley/bqp50-1.sparse
+  - ./ising/benchmarks/biqmac/gka/gka1a.sparse
   - ./ising/benchmarks/TSP/burma14.tsp
   - ./ising/benchmarks/TSP/ulysses16.tsp
   - ./ising/benchmarks/TSP/ulysses22.tsp
