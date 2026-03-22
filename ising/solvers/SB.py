@@ -75,9 +75,9 @@ class ballisticSB(SB):
         """
         N = model.num_variables
         if stop_criterion:
-            stop_criterion = 1e-6
+            zero_en_length = 50
         else:
-            stop_criterion = 0
+            zero_en_length = num_iterations
         if c0 == 0.0:
             c0 = return_c0(model)
         if seed == 0:
@@ -110,15 +110,14 @@ class ballisticSB(SB):
                 )
 
             tk = 0.0
+            sample = np.sign(x)
+            energy = model.evaluate(sample)
             if log.filename is not None:
-                sample = np.sign(x)
-                energy = model.evaluate(sample)
                 log.log(time=0.0, energy=energy, positions=x)
             k = 0
-            x_prev = x
-            diff = np.inf
+            current_length = 0
             start_time = time.time()
-            while k < num_iterations and diff > stop_criterion:
+            while k < num_iterations and current_length < zero_en_length:
                 atk = self.at(tk, a0, dtbSB, num_iterations) # 4
 
                 y += (-(a0 - atk) * x + c0 * np.matmul(J, x) + c0 * h) * dtbSB
@@ -130,13 +129,16 @@ class ballisticSB(SB):
 
                 tk += dtbSB # 1
                 k += 1
+                sample = np.sign(x)
+                energy_new = model.evaluate(sample)
                 if log.filename is not None:
-                    sample = np.sign(x)
-                    energy = model.evaluate(sample)
                     elapsed_time = time.time() - start_time
-                    log.log(time=elapsed_time, energy=energy, positions=x)
-                diff = self.handle_stop_criterion(x_prev, x)
-                x_prev = x
+                    log.log(time=elapsed_time, energy=energy_new, positions=x)
+                if energy_new == energy:
+                    current_length += 1
+                else:
+                    current_length = 0
+                energy = energy_new
 
             nb_operations = num_iterations * (2 * N**2 + 9 * N + 6)
             if log.filename is not None:
