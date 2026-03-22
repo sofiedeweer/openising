@@ -3,7 +3,10 @@
 #################################
 
 # Benchmark file name
-benchmark: ./ising/benchmarks/biqmac/be/be100.1.sparse
+benchmark: 
+  - ./ising/benchmarks/biqmac/be/be100.1.sparse
+  - ./ising/benchmarks/biqmac/beasley/bqp50-1.sparse
+  - ./ising/benchmarks/biqmac/gka/gka1a.sparse
 
 # Solver to use: [BRIM, SA, DSA, inSituSA, bSB, dSB, SCA, Multiplicative, CIM, all]
 solvers:
@@ -44,7 +47,7 @@ num_iterations_SA:
   - 1000
   - 5000
   - 10000
-T: 25.0
+T: 50.0
 T_final: 0.05
 seed: 100
 
@@ -57,7 +60,7 @@ num_iterations_SCA:
   - 10000
 T_init_SCA: 50.0
 T_final_SCA: 0.5
-q: 10.0
+q: -1.0
 q_final: -1.0
 
 # Parameters for in-Situ SA
@@ -94,8 +97,8 @@ num_iterations_SB:
   - 5000
   - 10000
   - 15000
-dtdSB: 0.25
-dtbSB: 0.75
+dtdSB: 0.5
+dtbSB: 0.5
 a0: 1.0
 c0: 0.0
 

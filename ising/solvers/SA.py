@@ -22,6 +22,7 @@ class SASolver(SolverBase):
         initial_temp: float,
         cooling_rate_SA: float,
         seed: int | None = None,
+        stop_criterion:bool = True,
         file: pathlib.Path | None = None,
     ) -> tuple[np.ndarray, float]:
         """
@@ -44,6 +45,11 @@ class SASolver(SolverBase):
             seed = int(time.time() * 1000)
         random.seed(seed)
 
+        if stop_criterion:
+            zero_en_length = 50
+        else:
+            zero_en_length = num_iterations
+
         # Set up schema and metadata for logging
         schema = {
             "time": np.float32,  # Scalar float
@@ -64,16 +70,18 @@ class SASolver(SolverBase):
                     cooling_rate=cooling_rate_SA,
                     seed=seed,
                 )
-
+            k = 0
+            current_length = 0
             start_time = time.time()
 
             # Setup initial state and energy
             T = initial_temp
             state = np.sign(initial_state).astype(np.float32)
             energy = model.evaluate(state)
+
             if logger.filename is not None:
                 logger.log(time=0.0, energy=energy, state=state, change_state=False)
-            for _ in range(num_iterations):
+            while k < num_iterations and current_length < zero_en_length:
                 # Select a random node to flip
                 node = random.randrange(0, model.num_variables)  # 1
 
@@ -91,12 +99,13 @@ class SASolver(SolverBase):
                 # Update the state and energy if the new state is accepted
                 if change_state:  # 2
                     energy = energy_new
+                    current_length = 0
                 else:
                     state[node] = -state[node]  # Revert the flip if the new state is rejected
-
+                    current_length += 1
                 # Decrease the temperature
                 T = cooling_rate_SA * T  # 1
-
+                k += 1
                 # Log current iteration data
                 if logger.filename is not None:
                     time_elapsed = time.time() - start_time
@@ -117,4 +126,4 @@ class SASolver(SolverBase):
             else:
                 time_elapsed = time.time() - start_time
 
-        return state, energy, time_elapsed, nb_operations
+        return state, energy, time_elapsed, nb_operations, k

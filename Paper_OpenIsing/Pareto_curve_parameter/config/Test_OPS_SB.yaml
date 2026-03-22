@@ -43,9 +43,10 @@ logfile_discrimination: None
 #################################
 ## Solvers hyperparameters
 #################################
-
+# For all solvers
+stop_criterion_iterations: True
 # Parameters for SB
-num_iterations_SB: 10000
+num_iterations_SB: 100000
 dtSB: 
   - 0.25
   - 0.5

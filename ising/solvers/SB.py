@@ -8,6 +8,7 @@ from ising.solvers.base import SolverBase
 from ising.utils.HDF5Logger import HDF5Logger
 from ising.utils.numpy import triu_to_symm
 from ising.utils.flow import return_c0
+from ising.stages import LOGGER
 
 
 class SB(SolverBase):
@@ -50,6 +51,7 @@ class ballisticSB(SB):
         a0: float = 1.0,
         seed: int = 0,
         file: pathlib.Path | None = None,
+        stop_criterion: bool = True
     ) -> tuple[np.ndarray, float]:
         """Performs the ballistic Simulated Bifurcation algorithm first proposed by [Goto et al.](https://www.science.org/doi/10.1126/sciadv.abe7953).
         This variation of Simulated Bifurcation introduces perfectly inelastic walls at |x_i| = 1
@@ -72,7 +74,10 @@ class ballisticSB(SB):
             sample, energy (tuple[np.ndarray, float]): optimal solution and energy
         """
         N = model.num_variables
-
+        if stop_criterion:
+            stop_criterion = 1e-6
+        else:
+            stop_criterion = 0
         if c0 == 0.0:
             c0 = return_c0(model)
         if seed == 0:
@@ -109,8 +114,11 @@ class ballisticSB(SB):
                 sample = np.sign(x)
                 energy = model.evaluate(sample)
                 log.log(time=0.0, energy=energy, positions=x)
+            k = 0
+            x_prev = x
+            diff = np.inf
             start_time = time.time()
-            for _ in range(num_iterations):
+            while k < num_iterations and diff > stop_criterion:
                 atk = self.at(tk, a0, dtbSB, num_iterations) # 4
 
                 y += (-(a0 - atk) * x + c0 * np.matmul(J, x) + c0 * h) * dtbSB
@@ -121,11 +129,14 @@ class ballisticSB(SB):
                 x = np.where(np.abs(x) >= 1, np.sign(x), x) # N
 
                 tk += dtbSB # 1
+                k += 1
                 if log.filename is not None:
                     sample = np.sign(x)
                     energy = model.evaluate(sample)
                     elapsed_time = time.time() - start_time
                     log.log(time=elapsed_time, energy=energy, positions=x)
+                diff = self.handle_stop_criterion(x_prev, x)
+                x_prev = x
 
             nb_operations = num_iterations * (2 * N**2 + 9 * N + 6)
             if log.filename is not None:
@@ -134,12 +145,14 @@ class ballisticSB(SB):
                     solution_energy=energy,
                     total_operations=nb_operations,
                     total_time=elapsed_time,
+                    total_iterations=k
                 )
             else:
                 sample = np.sign(x)
                 energy = model.evaluate(sample)
                 elapsed_time = time.time() - start_time
-        return sample, energy, elapsed_time, nb_operations
+            LOGGER.info(f"Total amount of iterations performed: {k}")
+        return sample, energy, elapsed_time, nb_operations, k
 
 
 class discreteSB(SB):
@@ -156,6 +169,7 @@ class discreteSB(SB):
         dtdSB: float,
         a0: float = 1.0,
         seed: int = 0,
+        stop_criterion: bool=True,
         file: pathlib.Path | None = None,
     ) -> tuple[np.ndarray, float]:
         """Performs the discrete Simulated Bifurcation algorithm first proposed by [Goto et al.](https://www.science.org/doi/10.1126/sciadv.abe7953).
@@ -180,7 +194,10 @@ class discreteSB(SB):
         tk = 0.0
         if c0 == 0.0:
             c0 = return_c0(model)
-
+        if stop_criterion:
+            stop_criterion = 1e-6
+        else:
+            stop_criterion = 0
         if seed == 0:
             seed = time.time()
         np.random.seed(seed)
@@ -212,8 +229,11 @@ class discreteSB(SB):
                 sample = np.sign(x)
                 energy = model.evaluate(sample)
                 log.log(time=0.0, energy=energy, positions=x)
+            k=0
+            diff=np.inf
+            x_prev=x
             start_time = time.time()
-            for i in range(num_iterations):
+            while k < num_iterations and diff>stop_criterion:
                 atk = self.at(tk, a0, dtdSB, num_iterations) # 3
 
                 y += (-(a0 - atk) * x + c0 * np.matmul(J, np.sign(x)) + c0 * h) * dtdSB
@@ -229,7 +249,8 @@ class discreteSB(SB):
                     sample = np.sign(x)
                     energy = model.evaluate(sample)
                     log.log(time=elapsed_time, energy=energy, positions=x)
-
+                k += 1
+                diff = self.handle_stop_criterion(x_prev, x)
             nb_operations = num_iterations * (2 * N**2 + 9 * N + 5)
             if log.filename is not None:
                 log.write_metadata(
@@ -237,9 +258,11 @@ class discreteSB(SB):
                     solution_energy=energy,
                     total_operations=nb_operations,
                     total_time=elapsed_time,
+                    total_iterations=k
                 )
             else:
                 elapsed_time = time.time() - start_time
                 sample = np.sign(x)
                 energy = model.evaluate(np.sign(x))
-        return sample, energy, elapsed_time, nb_operations
+            LOGGER.info(f"Total amount of iterations performed: {k}")
+        return sample, energy, elapsed_time, nb_operations, k

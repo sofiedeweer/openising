@@ -25,6 +25,7 @@ class SCA(SolverBase):
         q: float,
         r_q: float,
         seed: int | None = None,
+        stop_criterion:bool=False,
         file: pathlib.Path | None = None,
     ):
         """Implementation of the Stochastic Cellular Automata (SCA) annealing algorithm of the
@@ -50,7 +51,10 @@ class SCA(SolverBase):
             q= return_q(model)
             LOGGER.info(f"Using optimal q value: {q}")
             r_q = 1.0
-
+        if stop_criterion:
+            zero_en_length = 50
+        else:
+            zero_en_length = num_iterations
         N = model.num_variables
         hs = np.zeros((N,))
         J = triu_to_symm(model.J)
@@ -75,13 +79,14 @@ class SCA(SolverBase):
                     penalty_increase=r_q,
                     seed=seed,
                 )
-
+            k = 0
+            current_length = 0
             start_time = time.time()
             T = initial_temp_SCA
+            energy = model.evaluate(state.astype(np.float32))
             if log.filename is not None:
-                energy = model.evaluate(state.astype(np.float32))
                 log.log(time=0.0, energy=energy, state=state)
-            for _ in range(num_iterations):
+            while k < num_iterations and current_length > zero_en_length:
                 hs = J@state + model.h # 2*N**2 + N
 
                 Prob = self.get_prob(hs, state, q, T) # 2*N + 3*N
@@ -94,11 +99,16 @@ class SCA(SolverBase):
                 T = T*cooling_rate_SCA # 1
                 q = q* r_q # 1
                 flipped_states = []
-
+                energy_new = model.evaluate(state.astype(np.float32))
                 if log.filename is not None:
                     elapsed_time = time.time() - start_time
-                    energy = model.evaluate(state.astype(np.float32))
                     log.log(time=elapsed_time, energy=energy, state=state)
+
+                if self.handle_stop_criterion(energy, energy_new) < 1e-6:
+                    current_length += 1
+                else:
+                    current_length = 0
+                k+=1
 
             nb_operations = num_iterations * (2 * N**2 + 8 * N + N / 2 + 2)
             if log.filename is not None:
@@ -112,7 +122,7 @@ class SCA(SolverBase):
                 elapsed_time = time.time() - start_time
                 energy = model.evaluate(state.astype(np.float32))
 
-        return state, energy, elapsed_time, nb_operations
+        return state, energy, elapsed_time, nb_operations, k
 
     def get_prob(self, hs: np.ndarray, sample: np.ndarray, q: float, T: float) -> np.ndarray:
         """Calculates the probability of changing the value of the spins

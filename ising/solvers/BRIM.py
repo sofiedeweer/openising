@@ -249,4 +249,4 @@ class BRIM(SolverBase):
             else:
                 sample = np.sign(new_voltages[: model.num_variables])
                 energy = model.evaluate(np.sign(new_voltages[: model.num_variables]))
-        return sample, energy, tend, nb_operations
+        return sample, energy, tend, nb_operations, -1

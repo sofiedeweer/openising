@@ -74,6 +74,7 @@ class SimulationStage(Stage):
         optim_energy_collect = {solver: [] for solver in self.config.solvers}
         comp_time_collect = {solver: [] for solver in self.config.solvers}
         operation_count = {solver: -1 for solver in self.config.solvers}
+        total_it = {solver: [] for solver in self.config.solvers}
         initialization_state_collect = []
         logfile_collect = []
         if self.config.use_multiprocessing:
@@ -104,8 +105,9 @@ class SimulationStage(Stage):
                 optim_energy_collect[solver] += res[1][solver]
                 comp_time_collect[solver] += res[2][solver]
                 operation_count[solver] = res[3][solver]
-            logfile_collect += res[4]
-            initialization_state_collect += res[5]
+                total_it[solver] += res[4][solver]
+            logfile_collect += res[5]
+            initialization_state_collect += res[6]
 
         ans = Ans(
             benchmark=self.benchmark_abbreviation,
@@ -116,6 +118,7 @@ class SimulationStage(Stage):
             energies=optim_energy_collect,
             computation_time=comp_time_collect,
             operation_count=operation_count,
+            total_iteration_count=total_it,
             logfiles=logfile_collect,
             initialization_states=initialization_state_collect,
         )
@@ -132,6 +135,7 @@ class SimulationStage(Stage):
         optim_energy_collect = {solver: [] for solver in self.config.solvers}
         comp_time_collect = {solver: [] for solver in self.config.solvers}
         nb_operations_collect = {solver: -1 for solver in self.config.solvers}
+        nb_total_it_collect = {solver: [] for solver in self.config.solvers}
         initialization_state_collect = []
         logfile_collect = []
         pbar = tqdm.tqdm(range(nb_runs), ascii="░▒█", desc=f"Running trials of thread {os.getpid()}")
@@ -159,13 +163,19 @@ class SimulationStage(Stage):
                 else:
                     logfile = None
 
-                optim_state, optim_energy, computation_time, nb_operations = self.run_solver(
-                    solver, initial_state, self.ising_model, logfile, **hyperparameters
+                optim_state, optim_energy, computation_time, nb_operations, total_iterations = self.run_solver(
+                    solver,
+                    initial_state,
+                    self.ising_model,
+                    logfile,
+                    stop_criterion=self.config.stop_criterion_iterations,
+                    **hyperparameters,
                 )
                 optim_state_collect[solver].append(optim_state)
                 optim_energy_collect[solver].append(optim_energy)
                 comp_time_collect[solver].append(computation_time)
                 nb_operations_collect[solver] = nb_operations
+                nb_total_it_collect[solver].append(total_iterations)
                 logfile_collect.append(logfile)
             initialization_state_collect.append(initial_state)
 
@@ -180,6 +190,7 @@ class SimulationStage(Stage):
             optim_energy_collect,
             comp_time_collect,
             nb_operations_collect,
+            nb_total_it_collect,
             logfile_collect,
             initialization_state_collect,
         )
@@ -190,6 +201,7 @@ class SimulationStage(Stage):
         s_init: np.ndarray,
         model: IsingModel,
         logfile: pathlib.Path | None = None,
+        stop_criterion: bool = False,
         **hyperparameters,
     ) -> tuple[np.ndarray, float]:
         """! Solves the given problem with the specified solver.
@@ -215,7 +227,7 @@ class SimulationStage(Stage):
                     "seed",
                     "coupling_annealing",
                     "do_flipping",
-                    "probability_start" if hasattr(self.config, "probability_start") else None
+                    "probability_start" if hasattr(self.config, "probability_start") else None,
                 ],
             ),
             "Multiplicative": (
@@ -238,7 +250,7 @@ class SimulationStage(Stage):
                     "sigma_J",
                     "sigma_C",
                     "combine_nodes",
-                    "nb_splits"
+                    "nb_splits",
                 ],
             ),
             "inSituSA": (
@@ -254,10 +266,11 @@ class SimulationStage(Stage):
         if solver in solvers:
             func, params = solvers[solver]
             chosen_hyperparameters = {key: hyperparameters[key] for key in params if key in hyperparameters}
-
+            if solver in ["SA", "SCA", "bSB", "dSB", "inSituSA"]:
+                chosen_hyperparameters["stop_criterion"] = stop_criterion
             optim_state: np.ndarray
             optim_energy: float | None
-            optim_state, optim_energy, computation_time, operation_count = func(
+            optim_state, optim_energy, computation_time, operation_count, total_iterations = func(
                 model=model,
                 initial_state=s_init,
                 num_iterations=hyperparameters[
@@ -269,7 +282,7 @@ class SimulationStage(Stage):
         else:
             LOGGER.error(f"Solver {solver} is not implemented.")
             raise NotImplementedError(f"Solver {solver} is not implemented.")
-        return optim_state, optim_energy, computation_time, operation_count
+        return optim_state, optim_energy, computation_time, operation_count, total_iterations
 
 
 class Ans(metaclass=ABCMeta):
@@ -294,12 +307,12 @@ class Ans(metaclass=ABCMeta):
             return self._attributes[name]
         raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
 
-    def save(self, file:pathlib.Path):
+    def save(self, file: pathlib.Path):
         with file.open("wb") as f:
             pickle.dump(self._attributes, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     def load(self, file):
         with file.open("rb") as f:
-            attr:dict = pickle.load(f)
+            attr: dict = pickle.load(f)
         for name, val in attr.items():
             self._attributes[name] = val

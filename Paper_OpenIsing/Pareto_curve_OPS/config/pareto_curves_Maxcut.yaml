@@ -3,7 +3,10 @@
 #################################
 
 # Benchmark file name
-benchmark: ./ising/benchmarks/G/G1.txt
+benchmark: 
+  - ./ising/benchmarks/G/G1.txt
+  - ./ising/benchmarks/G/G6.txt
+  - ./ising/benchmarks/G/G14.txt
 
 # Solver to use: [BRIM, SA, DSA, inSituSA, bSB, dSB, SCA, Multiplicative, CIM, all]
 solvers:
@@ -44,7 +47,7 @@ num_iterations_SA:
   - 10000
   - 50000
   - 100000
-T: 25.0
+T: 50.0
 T_final: 0.05
 seed: 100
 
@@ -94,7 +97,7 @@ num_iterations_SB:
   - 5000
   - 10000
   - 15000
-dtdSB: 0.25
+dtdSB: 0.5
 dtbSB: 0.75
 a0: 1.0
 c0: 0.0

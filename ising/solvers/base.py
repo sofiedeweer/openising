@@ -16,6 +16,9 @@ class SolverBase(ABC):
     def solve(self, model: IsingModel):
         pass
 
+    def handle_stop_criterion(self, old, new, order=None):
+        return np.linalg.norm(old-new, ord=order)/np.linalg.norm(old, ord=order)
+
     def log_metadata(
         self,
         logger: HDF5Logger,

@@ -3,8 +3,10 @@
 #################################
 
 # Benchmark file name
-benchmark: ./ising/benchmarks/Knapsack/jeu_100_25_1.txt
-
+benchmark: 
+  - ./ising/benchmarks/Knapsack/jeu_100_25_1.txt
+  - ./ising/benchmarks/Knapsack/jeu_200_25_1.txt
+  - ./ising/benchmarks/Knapsack/jeu_100_50_1.txt
 # Solver to use: [BRIM, SA, DSA, inSituSA, bSB, dSB, SCA, Multiplicative, CIM, all]
 solvers:
   - bSB
@@ -44,7 +46,7 @@ num_iterations_SA:
   - 1000
   - 5000
   - 100000
-T: 150.0
+T: 50.0
 T_final: 0.05
 seed: 100
 
@@ -69,7 +71,7 @@ num_iterations_inSituSA:
   - 500
   - 1000
   - 5000
-nb_flips: 10
+nb_flips: 2
 
 # Parameters for BRIM
 num_iterations_BRIM: 
@@ -95,7 +97,7 @@ num_iterations_SB:
   - 10000
   - 15000
 dtdSB: 0.5
-dtbSB: 0.75
+dtbSB: 0.5
 a0: 1.0
 c0: 0.0
 

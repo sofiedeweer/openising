@@ -3,7 +3,10 @@
 #################################
 
 # Benchmark file name
-benchmark: ./ising/benchmarks/TSP/burma14.tsp
+benchmark: 
+  - ./ising/benchmarks/TSP/burma14.tsp
+  - ./ising/benchmarks/TSP/ulysses16.tsp
+  - ./ising/benchmarks/TSP/ulysses22.tsp
 
 # Solver to use: [BRIM, SA, DSA, inSituSA, bSB, dSB, SCA, Multiplicative, CIM, all]
 solvers:
@@ -44,7 +47,7 @@ num_iterations_SA:
   - 10000
   - 50000
   - 100000
-T: 150.0
+T: 50.0
 T_final: 0.05
 seed: 100
 

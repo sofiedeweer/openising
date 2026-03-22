@@ -4,6 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 from typing import Any
+from scipy.stats import gmean
 
 
 from ising.utils.HDF5Logger import return_metadata
@@ -244,27 +245,33 @@ def pareto_curve_loop(
     colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:grey"]
     error_colors = ["darkblue", "chocolate", "darkgreen", "maroon"]
     bar_width = 0.4
+    parameter_values.sort()
     x = np.arange(0, (4 * bar_width) * len(parameter_values), bar_width * 4)
     for solver in ans_data[problems[0]][parameter_values[0]][0].config.solvers:
         plt.figure()
         fig, ax = plt.subplots()
         # ax = fig.get_axes()[0]
-        ax2 = ax.twinx()
+        # ax2 = ax.twinx()
         for ind, problem in enumerate(problems):
             energies_avg = {val: 0.0 for val in parameter_values}
             energies_std = {val: 0.0 for val in parameter_values}
+            iterations_avg = {val: 0 for val in parameter_values}
             for val, ans_list in ans_data[problem].items():
                 # Store the energies as a relative error to the best found
                 energies = np.array([])
+                iterations = []
                 for ans in ans_list:
                     energies = np.append(
                         energies, relative_to_best_found(np.array(ans.energies[solver]), ans.best_found)
                     )
+                    iterations.append(ans.total_iteration_count[solver])
 
                 energies_avg[val] = np.mean(energies)
                 energies_std[val] = np.std(energies)
+                iterations_avg[val] = gmean(iterations)
             energies_avg = [energies_avg[val] for val in parameter_values]
             energies_std = [energies_std[val] for val in parameter_values]
+            iterations_avg = [iterations_avg[val] for val in parameter_values]
             if problem != "MIMO":
                 ax.plot(
                     x,
@@ -279,6 +286,8 @@ def pareto_curve_loop(
                     energies_avg+energies_std,
                     color=error_colors[ind],
                 )
+                for ind, en in enumerate(energies_avg):
+                    ax.text(x[ind], en+en/10, str(iterations_avg[ind]))
             # else:
             #     ax2.errorbar(
             #         x,
@@ -299,8 +308,8 @@ def pareto_curve_loop(
         ax.set_ylabel("Relative distance to best found energy", fontsize=15)
         ax.set_title(f"Pareto curve for different {parameter_name} values - {solver} solver", fontsize=15)
         handles1, labels1 = ax.get_legend_handles_labels()
-        handles2, labels2 = ax2.get_legend_handles_labels()
-        leg = ax2.legend(handles1 + handles2, labels1 + labels2, fontsize=15, loc="upper left")
+        # handles2, labels2 = ax2.get_legend_handles_labels()
+        leg = ax.legend(handles1, labels1, fontsize=15, loc="upper left")
         leg.set_zorder(100)
         fig.savefig(save_folder / fig_name, bbox_inches="tight", dpi=600)
         plt.close()
