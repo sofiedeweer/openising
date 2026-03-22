@@ -266,18 +266,19 @@ def pareto_curve_loop(
                     )
                     iterations.append(ans.total_iteration_count[solver])
 
-                energies_avg[val] = np.mean(energies)
-                energies_std[val] = np.std(energies)
+                mean = np.mean(energies)
+                energies_avg[val] = mean
+                energies_std[val] = np.std(energies)/mean
                 iterations_avg[val] = gmean(iterations)
-            energies_avg = [energies_avg[val] for val in parameter_values]
-            energies_std = [energies_std[val] for val in parameter_values]
+            energies_avg = np.array([energies_avg[val] for val in parameter_values])
+            energies_std = np.array([energies_std[val] for val in parameter_values])
             iterations_avg = [iterations_avg[val] for val in parameter_values]
             if problem != "MIMO":
                 ax.plot(
                     x,
                     energies_avg,
                     color=colors[ind],
-                    fmt="o",
+                    marker="o",
                     label=str(problem),
                 )
                 ax.fill_between(
@@ -301,7 +302,7 @@ def pareto_curve_loop(
             #     ax2.set_ylabel("Bit Error Rate", color=colors[ind], fontsize=15)
         ax.set_yscale("log")
         # ax2.set_yscale("log")
-        ax.set_ylim(1e-4, 1e5)
+        ax.set_ylim(1e-5, 1e5)
         # ax2.set_ylim(1e-4, 1)
         ax.set_xticks(x, [str(val) for val in parameter_values])
         ax.set_xlabel(parameter_name, fontsize=15)
@@ -311,5 +312,5 @@ def pareto_curve_loop(
         # handles2, labels2 = ax2.get_legend_handles_labels()
         leg = ax.legend(handles1, labels1, fontsize=15, loc="upper left")
         leg.set_zorder(100)
-        fig.savefig(save_folder / fig_name, bbox_inches="tight", dpi=600)
+        fig.savefig(save_folder / f"{fig_name}_{solver}.pdf", bbox_inches="tight", dpi=600)
         plt.close()
