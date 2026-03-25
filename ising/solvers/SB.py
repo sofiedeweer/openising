@@ -51,7 +51,7 @@ class ballisticSB(SB):
         a0: float = 1.0,
         seed: int = 0,
         file: pathlib.Path | None = None,
-        stop_criterion: bool = True
+        stop_criterion: bool = True,
     ) -> tuple[np.ndarray, float]:
         """Performs the ballistic Simulated Bifurcation algorithm first proposed by [Goto et al.](https://www.science.org/doi/10.1126/sciadv.abe7953).
         This variation of Simulated Bifurcation introduces perfectly inelastic walls at |x_i| = 1
@@ -74,10 +74,9 @@ class ballisticSB(SB):
             sample, energy (tuple[np.ndarray, float]): optimal solution and energy
         """
         N = model.num_variables
-        if stop_criterion:
-            zero_en_length = 50
-        else:
-            zero_en_length = num_iterations
+
+        if not stop_criterion:
+            self.zero_en_length = num_iterations
         if c0 == 0.0:
             c0 = return_c0(model)
         if seed == 0:
@@ -117,27 +116,26 @@ class ballisticSB(SB):
             k = 0
             current_length = 0
             start_time = time.time()
-            while k < num_iterations and current_length < zero_en_length:
-                atk = self.at(tk, a0, dtbSB, num_iterations) # 4
+            while k < num_iterations and current_length < self.zero_en_length:
+                atk = self.at(tk, a0, dtbSB, num_iterations)  # 4
 
                 y += (-(a0 - atk) * x + c0 * np.matmul(J, x) + c0 * h) * dtbSB
                 # 1 + N + 2*N**2 + N + N + 2*N + N= 2*N**2 + 6*N + 1
-                x += self.update_x(y, dtbSB, a0) # N+1
+                x += self.update_x(y, dtbSB, a0)  # N+1
 
-                y = np.where(np.abs(x) >= 1, 0, y) # N
-                x = np.where(np.abs(x) >= 1, np.sign(x), x) # N
+                y = np.where(np.abs(x) >= 1, 0, y)  # N
+                x = np.where(np.abs(x) >= 1, np.sign(x), x)  # N
 
-                tk += dtbSB # 1
+                tk += dtbSB  # 1
                 k += 1
                 sample = np.sign(x)
                 energy_new = model.evaluate(sample)
                 if log.filename is not None:
                     elapsed_time = time.time() - start_time
                     log.log(time=elapsed_time, energy=energy_new, positions=x)
-                if energy_new == energy and stop_criterion:
-                    current_length += 1
-                else:
-                    current_length = 0
+                current_length += int(
+                    self.handle_stop_criterion(energy, energy_new) < self.max_energy_change and stop_criterion
+                )
                 energy = energy_new
 
             nb_operations = num_iterations * (2 * N**2 + 9 * N + 6)
@@ -147,7 +145,7 @@ class ballisticSB(SB):
                     solution_energy=energy,
                     total_operations=nb_operations,
                     total_time=elapsed_time,
-                    total_iterations=k
+                    total_iterations=k,
                 )
             else:
                 sample = np.sign(x)
@@ -171,7 +169,7 @@ class discreteSB(SB):
         dtdSB: float,
         a0: float = 1.0,
         seed: int = 0,
-        stop_criterion: bool=True,
+        stop_criterion: bool = True,
         file: pathlib.Path | None = None,
     ) -> tuple[np.ndarray, float]:
         """Performs the discrete Simulated Bifurcation algorithm first proposed by [Goto et al.](https://www.science.org/doi/10.1126/sciadv.abe7953).
@@ -196,10 +194,9 @@ class discreteSB(SB):
         tk = 0.0
         if c0 == 0.0:
             c0 = return_c0(model)
-        if stop_criterion:
-            stop_criterion = 1e-6
-        else:
-            stop_criterion = 0
+
+        if not stop_criterion:
+            self.zero_en_length = num_iterations
         if seed == 0:
             seed = time.time()
         np.random.seed(seed)
@@ -218,6 +215,8 @@ class discreteSB(SB):
         }
 
         with HDF5Logger(file, schema) as log:
+            sample = np.sign(x)
+            energy = model.evaluate(sample)
             if log.filename is not None:
                 self.log_metadata(
                     logger=log,
@@ -228,32 +227,32 @@ class discreteSB(SB):
                     a0=a0,
                     c0=c0,
                 )
-                sample = np.sign(x)
-                energy = model.evaluate(sample)
                 log.log(time=0.0, energy=energy, positions=x)
-            k=0
-            diff=np.inf
-            x_prev=np.copy(x)
+            k = 0
+            energy_old = energy
+            current_length = 0
             start_time = time.time()
-            while k < num_iterations and diff>stop_criterion:
-                atk = self.at(tk, a0, dtdSB, num_iterations) # 3
+            while k < num_iterations and current_length < self.zero_en_length:
+                atk = self.at(tk, a0, dtdSB, num_iterations)  # 3
 
                 y += (-(a0 - atk) * x + c0 * np.matmul(J, np.sign(x)) + c0 * h) * dtdSB
                 # 1+N + 2*N**2 + N + N + 2*N + N = 2*N**2 + 6*N + 1
-                x += self.update_x(y, dtdSB, a0) # N+1
+                x += self.update_x(y, dtdSB, a0)  # N+1
 
-                y = np.where(np.abs(x) >= 1, 0, y) # N
-                x = np.where(np.abs(x) >= 1, np.sign(x), x) # N
+                y = np.where(np.abs(x) >= 1, 0, y)  # N
+                x = np.where(np.abs(x) >= 1, np.sign(x), x)  # N
 
-                tk += dtdSB # 1
+                tk += dtdSB  # 1
                 if log.filename is not None:
                     elapsed_time = time.time() - start_time
                     sample = np.sign(x)
                     energy = model.evaluate(sample)
                     log.log(time=elapsed_time, energy=energy, positions=x)
                 k += 1
-                diff = self.handle_stop_criterion(x_prev, x) if stop_criterion else 1
-                x_prev = np.copy(x)
+                current_length += int(
+                    self.handle_stop_criterion(energy_old, energy) < self.max_energy_change and stop_criterion
+                )
+                energy_old = energy
             nb_operations = num_iterations * (2 * N**2 + 9 * N + 5)
             if log.filename is not None:
                 log.write_metadata(
@@ -261,7 +260,7 @@ class discreteSB(SB):
                     solution_energy=energy,
                     total_operations=nb_operations,
                     total_time=elapsed_time,
-                    total_iterations=k
+                    total_iterations=k,
                 )
             else:
                 elapsed_time = time.time() - start_time

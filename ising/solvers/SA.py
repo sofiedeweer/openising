@@ -45,10 +45,8 @@ class SASolver(SolverBase):
             seed = int(time.time() * 1000)
         random.seed(seed)
 
-        if stop_criterion:
-            zero_en_length = 50
-        else:
-            zero_en_length = num_iterations
+        if not stop_criterion:
+            self.zero_en_length = num_iterations
 
         # Set up schema and metadata for logging
         schema = {
@@ -81,7 +79,7 @@ class SASolver(SolverBase):
 
             if logger.filename is not None:
                 logger.log(time=0.0, energy=energy, state=state, change_state=False)
-            while k < num_iterations and current_length < zero_en_length:
+            while k < num_iterations and current_length < self.zero_en_length:
                 # Select a random node to flip
                 node = random.randrange(0, model.num_variables)  # 1
 

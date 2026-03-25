@@ -44,10 +44,8 @@ class InSituSASolver(SolverBase):
         if nb_flips == -1:
             nb_flips = 2
 
-        if stop_criterion:
-            zero_en_length = 50
-        else:
-            zero_en_length = num_iterations
+        if not stop_criterion:
+            self.zero_en_length = num_iterations
 
         # seed the random number generator. Use a timestamp-based seed if non is provided.
         if seed is None:
@@ -84,7 +82,7 @@ class InSituSASolver(SolverBase):
             energy = model.evaluate(state)
             if logger.filename is not None:
                 logger.log(time=0.0, energy=energy, state=state)
-            while k < num_iterations and current_length < zero_en_length:
+            while k < num_iterations and current_length < self.zero_en_length:
                 # Select a random node to flip
                 sigma_f = np.where(
                     np.isin(

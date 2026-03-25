@@ -25,7 +25,7 @@ class SCA(SolverBase):
         q: float,
         r_q: float,
         seed: int | None = None,
-        stop_criterion:bool=False,
+        stop_criterion: bool = False,
         file: pathlib.Path | None = None,
     ):
         """Implementation of the Stochastic Cellular Automata (SCA) annealing algorithm of the
@@ -47,14 +47,13 @@ class SCA(SolverBase):
         Returns:
             sample, energy (tuple[np.ndarray, float]): final state and energy of the optimisation process.
         """
-        if q== -1.0:
-            q= return_q(model)
+        if q == -1.0:
+            q = return_q(model)
             LOGGER.info(f"Using optimal q value: {q}")
             r_q = 1.0
-        if stop_criterion:
-            zero_en_length = 50
-        else:
-            zero_en_length = num_iterations
+
+        if not stop_criterion:
+            self.zero_en_length = num_iterations
         N = model.num_variables
         hs = np.zeros((N,))
         J = triu_to_symm(model.J)
@@ -86,30 +85,29 @@ class SCA(SolverBase):
             energy = model.evaluate(state.astype(np.float32))
             if log.filename is not None:
                 log.log(time=0.0, energy=energy, state=state)
-            while k < num_iterations and current_length < zero_en_length:
-                hs = J@state + model.h # 2*N**2 + N
+            while k < num_iterations and current_length < self.zero_en_length:
+                hs = J @ state + model.h  # 2*N**2 + N
 
-                Prob = self.get_prob(hs, state, q, T) # 2*N + 3*N
-                rand = np.random.uniform(0, 1, size=(N,)) # N
+                Prob = self.get_prob(hs, state, q, T)  # 2*N + 3*N
+                rand = np.random.uniform(0, 1, size=(N,))  # N
 
-                flipped_states = [y for y in range(N) if Prob[y] < rand[y]] # N
+                flipped_states = [y for y in range(N) if Prob[y] < rand[y]]  # N
 
-                state[flipped_states] = -state[flipped_states] # N
+                state[flipped_states] = -state[flipped_states]  # N
 
-                T = T*cooling_rate_SCA # 1
-                q = q* r_q # 1
+                T = T * cooling_rate_SCA  # 1
+                q = q * r_q  # 1
                 flipped_states = []
                 energy_new = model.evaluate(state.astype(np.float32))
                 if log.filename is not None:
                     elapsed_time = time.time() - start_time
                     log.log(time=elapsed_time, energy=energy_new, state=state)
 
-                if stop_criterion and self.handle_stop_criterion(energy, energy_new) < 1e-6:
-                    current_length += 1
-                else:
-                    current_length = 0
+                current_length += int(
+                    self.handle_stop_criterion(energy, energy_new) < self.max_energy_change and stop_criterion
+                )
                 energy = energy_new
-                k+=1
+                k += 1
 
             nb_operations = num_iterations * (2 * N**2 + 8 * N + N / 2 + 2)
             if log.filename is not None:
@@ -138,12 +136,12 @@ class SCA(SolverBase):
         Returns:
             probability (np.ndarray): probability of accepting the change of all nodes.
         """
-        val = (hs*sample + q)
+        val = hs * sample + q
         probs = np.zeros_like(val)
         for i, value in enumerate(val):
-            if value >= -2*T and value <= 2*T:
-                probs[i] = value / (4*T) + 0.5
-            elif value > 2*T:
+            if value >= -2 * T and value <= 2 * T:
+                probs[i] = value / (4 * T) + 0.5
+            elif value > 2 * T:
                 probs[i] = 1
             else:
                 probs[i] = 0

@@ -10,6 +10,8 @@ class SolverBase(ABC):
 
     def __init__(self):
         self.name= ""
+        self.zero_en_length = 50
+        self.max_energy_change = 1e-6
 
 
     @abstractmethod
