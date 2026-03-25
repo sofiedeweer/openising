@@ -42,7 +42,7 @@ class QKPParserStage(Stage):
         @return model (IsingModel): generated model from the graph
         """
         if penalty_value < 1.0:
-            LOGGER.warning("Penalty value smaller than 1. Changing to 1.")
+            LOGGER.warning(f"Penalty value is {penalty_value} < 1. Changing to 1.")
             penalty_value = 1.0
 
         N = len(graph.nodes)

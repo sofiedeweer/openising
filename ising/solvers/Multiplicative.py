@@ -175,33 +175,9 @@ class Multiplicative(SolverBase):
         # States needed for delay calculation. The newest state is always appended to the end of the list.
         previous_states = np.array([np.sign(state) for _ in range(total_delay + 1)])
         counter = total_delay + 1
-        # if self.mismatch:
-        #     dv_pos = self.coupling_pos @ np.sign(state)
-        #     dv_neg = self.coupling_neg @ np.sign(state)
-        #     dv = np.where(dv_pos > 0, dv_pos, dv_neg)
-        # else:
-        #     dv = self.coupling_pos @ np.sign(state)
         dv = self.coupling @ np.sign(state) * self.current / self.capacitance
         while i < self.num_iterations and max_change > self.stop_criterion:
             if counter < total_delay + 1:
-                # if self.mismatch:
-                # if total_delay > 0:  # mismatch and delay present
-                #     # TODO: debug calculation
-                #     Voltages = self.construct_voltage_delay(previous_states)
-                #     dv_pos = np.diagonal(self.coupling_pos * Voltages).copy()
-                #     dv_neg = np.diagonal(self.coupling_neg * Voltages).copy()
-                #     dv = np.where(dv_pos > 0, dv_pos, dv_neg)
-                # else:  # mismatch present
-                #     dv_pos = self.coupling_pos * np.sign(state)
-                #     dv_neg = self.coupling_neg * np.sign(state)
-                #     dv_all = np.where(dv_pos > 0, dv_pos, dv_neg)
-                #     dv = np.sum(dv_all, axis=1)
-                # else:
-                #     if total_delay > 0:  # delay present
-                #         Voltages = self.construct_voltage_delay(previous_states)
-                #         dv = np.diagonal(self.coupling_pos @ Voltages).copy()
-                #     else:  # no hardware imperfections
-                #         dv = self.coupling_pos @ np.sign(state)
                 if total_delay > 0:
                     Voltages = self.construct_voltage_delay(previous_states)
                     dv = np.diagonal(self.coupling @ Voltages).copy()

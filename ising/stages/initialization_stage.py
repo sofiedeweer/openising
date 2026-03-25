@@ -35,7 +35,7 @@ class InitializationStage(Stage):
 
         self.ising_model = self.ising_model.copy()  # Placeholder for any model-specific initialization
         if self.config.combine_nodes:
-            nodes_scaling = self.config.nodes_scaling if hasattr(self.config, "nodes_scaling") else 2
+            nodes_scaling = self.config.nodes_scaling
             orig_num_variables = int(self.ising_model.num_variables / nodes_scaling)
             self.initial_state = np.repeat(np.random.uniform(-1,1, (orig_num_variables,)), nodes_scaling)
         return self.initial_state, self.ising_model

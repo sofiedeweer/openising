@@ -27,6 +27,7 @@ class CombineNodesStage(Stage):
 
         if self.config.combine_nodes:
             nodes_scaling = self.config.nodes_scaling if hasattr(self.config, "nodes_scaling") else 2
+            self.config.nodes_scaling = nodes_scaling
             original_J = self.ising_model.J
             original_h = self.ising_model.h
             new_J, new_h = self.split_nodes(original_J, original_h, nodes_scaling)
