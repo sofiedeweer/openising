@@ -7,6 +7,7 @@ import tqdm
 import pathlib
 import os
 import multiprocessing
+import pickle
 
 from ising.stages.stage import Stage, StageCallable
 from ising.stages.model.ising import IsingModel
@@ -18,7 +19,6 @@ from ising.solvers.SCA import SCA
 from ising.solvers.SA import SASolver
 from ising.solvers.DSA import DSASolver
 from ising.solvers.inSitu_SA import InSituSASolver
-from ising.solvers.CIM import CIMSolver
 from ising.solvers.Multiplicative import Multiplicative
 
 
@@ -74,6 +74,7 @@ class SimulationStage(Stage):
         optim_energy_collect = {solver: [] for solver in self.config.solvers}
         comp_time_collect = {solver: [] for solver in self.config.solvers}
         operation_count = {solver: -1 for solver in self.config.solvers}
+        total_it = {solver: [] for solver in self.config.solvers}
         initialization_state_collect = []
         logfile_collect = []
         if self.config.use_multiprocessing:
@@ -104,8 +105,9 @@ class SimulationStage(Stage):
                 optim_energy_collect[solver] += res[1][solver]
                 comp_time_collect[solver] += res[2][solver]
                 operation_count[solver] = res[3][solver]
-            logfile_collect += res[4]
-            initialization_state_collect += res[5]
+                total_it[solver] += res[4][solver]
+            logfile_collect += res[5]
+            initialization_state_collect += res[6]
 
         ans = Ans(
             benchmark=self.benchmark_abbreviation,
@@ -116,8 +118,9 @@ class SimulationStage(Stage):
             energies=optim_energy_collect,
             computation_time=comp_time_collect,
             operation_count=operation_count,
+            total_iteration_count=total_it,
             logfiles=logfile_collect,
-            initialization_states = initialization_state_collect,
+            initialization_states=initialization_state_collect,
         )
         debug_info = Ans()  # Placeholder for debug information, if needed
 
@@ -132,6 +135,7 @@ class SimulationStage(Stage):
         optim_energy_collect = {solver: [] for solver in self.config.solvers}
         comp_time_collect = {solver: [] for solver in self.config.solvers}
         nb_operations_collect = {solver: -1 for solver in self.config.solvers}
+        nb_total_it_collect = {solver: [] for solver in self.config.solvers}
         initialization_state_collect = []
         logfile_collect = []
         pbar = tqdm.tqdm(range(nb_runs), ascii="░▒█", desc=f"Running trials of thread {os.getpid()}")
@@ -158,14 +162,24 @@ class SimulationStage(Stage):
                     )
                 else:
                     logfile = None
-
-                optim_state, optim_energy, computation_time, nb_operations = self.run_solver(
-                    solver, initial_state, self.ising_model, logfile, **hyperparameters
+                stop_crit = (
+                    self.config["stop_criterion_iterations"]
+                    if hasattr(self.config, "stop_criterion_iterations")
+                    else False
+                )
+                optim_state, optim_energy, computation_time, nb_operations, total_iterations = self.run_solver(
+                    solver,
+                    initial_state,
+                    self.ising_model,
+                    logfile,
+                    stop_criterion_it=stop_crit,
+                    **hyperparameters,
                 )
                 optim_state_collect[solver].append(optim_state)
                 optim_energy_collect[solver].append(optim_energy)
                 comp_time_collect[solver].append(computation_time)
                 nb_operations_collect[solver] = nb_operations
+                nb_total_it_collect[solver].append(total_iterations)
                 logfile_collect.append(logfile)
             initialization_state_collect.append(initial_state)
 
@@ -180,6 +194,7 @@ class SimulationStage(Stage):
             optim_energy_collect,
             comp_time_collect,
             nb_operations_collect,
+            nb_total_it_collect,
             logfile_collect,
             initialization_state_collect,
         )
@@ -190,6 +205,7 @@ class SimulationStage(Stage):
         s_init: np.ndarray,
         model: IsingModel,
         logfile: pathlib.Path | None = None,
+        stop_criterion_it: bool = False,
         **hyperparameters,
     ) -> tuple[np.ndarray, float]:
         """! Solves the given problem with the specified solver.
@@ -207,12 +223,20 @@ class SimulationStage(Stage):
         solvers = {
             "BRIM": (
                 BRIM().solve,
-                ["dtBRIM", "capacitance", "resistance", "stop_criterion", "seed", "coupling_annealing", "do_flipping"],
+                [
+                    "dtBRIM",
+                    "capacitance",
+                    "resistance",
+                    "stop_criterion",
+                    "seed",
+                    "coupling_annealing",
+                    "do_flipping",
+                    "probability_start" if hasattr(self.config, "probability_start") else None,
+                ],
             ),
             "Multiplicative": (
                 Multiplicative().solve,
                 [
-                    "dtMult",
                     "seed",
                     "current",
                     "capacitance",
@@ -229,6 +253,8 @@ class SimulationStage(Stage):
                     "delay_offset",
                     "sigma_J",
                     "sigma_C",
+                    "combine_nodes",
+                    "nb_splits",
                 ],
             ),
             "inSituSA": (
@@ -236,18 +262,19 @@ class SimulationStage(Stage):
                 ["initial_temp_inSituSA", "cooling_rate_inSituSA", "nb_flips", "seed"],
             ),
             "SA": (SASolver().solve, ["initial_temp", "cooling_rate_SA", "seed"]),
-            "DSA": (DSASolver().solve, ["initial_temp", "cooling_rate_SA", "seed"]),
-            "SCA": (SCA().solve, ["initial_temp", "cooling_rate_SCA", "q", "r_q", "seed"]),
-            "bSB": (ballisticSB().solve, ["c0", "dtSB", "a0", "seed"]),
-            "dSB": (discreteSB().solve, ["c0", "dtSB", "a0", "seed"]),
-            "CIM": (CIMSolver().solve, ["dtCIM", "zeta", "seed"]),
+            "DSA": (DSASolver().solve, ["initial_temp", "cooling_rate_DSA", "seed"]),
+            "SCA": (SCA().solve, ["initial_temp_SCA", "cooling_rate_SCA", "q", "r_q", "seed"]),
+            "bSB": (ballisticSB().solve, ["c0", "dtbSB", "a0", "seed"]),
+            "dSB": (discreteSB().solve, ["c0", "dtdSB", "a0", "seed"]),
         }
         if solver in solvers:
             func, params = solvers[solver]
             chosen_hyperparameters = {key: hyperparameters[key] for key in params if key in hyperparameters}
+            if solver in ["SA", "SCA", "bSB", "dSB", "inSituSA"]:
+                chosen_hyperparameters["stop_criterion"] = stop_criterion_it
             optim_state: np.ndarray
             optim_energy: float | None
-            optim_state, optim_energy, computation_time, operation_count = func(
+            optim_state, optim_energy, computation_time, operation_count, total_iterations = func(
                 model=model,
                 initial_state=s_init,
                 num_iterations=hyperparameters[
@@ -259,7 +286,7 @@ class SimulationStage(Stage):
         else:
             LOGGER.error(f"Solver {solver} is not implemented.")
             raise NotImplementedError(f"Solver {solver} is not implemented.")
-        return optim_state, optim_energy, computation_time, operation_count
+        return optim_state, optim_energy, computation_time, operation_count, total_iterations
 
 
 class Ans(metaclass=ABCMeta):
@@ -287,3 +314,13 @@ class Ans(metaclass=ABCMeta):
         if name in attrs:
             return attrs[name]
         raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+
+    def save(self, file: pathlib.Path):
+        with file.open("wb") as f:
+            pickle.dump(self._attributes, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def load(self, file):
+        with file.open("rb") as f:
+            attr: dict = pickle.load(f)
+        for name, val in attr.items():
+            self._attributes[name] = val

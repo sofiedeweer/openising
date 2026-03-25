@@ -7,15 +7,13 @@ from typing import Any
 from ising.stages.stage import Stage, StageCallable
 from ising.stages.simulation_stage import Ans
 from ising.stages.model.ising import IsingModel
+from ising.solvers.MIMO.ZF import ZF
+
 
 class MIMOParserStage(Stage):
     """! Stage to parse the MIMO benchmark workload."""
 
-    def __init__(self,
-                 list_of_callables: list[StageCallable],
-                 *,
-                 config: Any,
-                 **kwargs: Any):
+    def __init__(self, list_of_callables: list[StageCallable], *, config: Any, **kwargs: Any):
         super().__init__(list_of_callables, **kwargs)
         self.config = config
         self.benchmark_filename = TOP / config.benchmark
@@ -61,12 +59,14 @@ class MIMOParserStage(Stage):
         if is_bpsk:
             diff = {solver: np.zeros((user_num, case_num)) for solver in self.config.solvers}
         else:
-            diff = {solver: np.zeros((2*user_num, case_num)) for solver in self.config.solvers}
+            diff = {solver: np.zeros((2 * user_num, case_num)) for solver in self.config.solvers}
+        y = np.zeros((ant_num, case_num), dtype=np.complex128)
         for run in range(case_num):
             xi = x[:, run]
-            ising_model, x_tilde, _ = self.MIMO_to_Ising(
-                H, xi, snr, user_num, ant_num, M, mimo_seed,
-                is_hamming_encoding=self.is_hamming_encoding)
+            ising_model, x_tilde, yi = self.MIMO_to_Ising(
+                H, xi, snr, user_num, ant_num, M, mimo_seed, is_hamming_encoding=self.is_hamming_encoding
+            )
+            y[:, run] = yi
             self.kwargs["ising_model"] = ising_model
             self.kwargs["x_tilde"] = x_tilde
             self.kwargs["M"] = M
@@ -80,16 +80,25 @@ class MIMOParserStage(Stage):
             for solver in self.config.solvers:
                 ans_all.computation_time[solver] += ans.computation_time[solver]
                 diff[solver][:, run] = ans.difference[solver]
+        x_hat_ZF = ZF().solve(H, y, M)
+        diff_ZF = x[:, :case_num] - x_hat_ZF
+        ans_all.ber_of_trials["ZF"] = np.sum(np.abs(np.real(diff_ZF)) / 2 + np.abs(np.imag(diff_ZF)) / 2, axis=0) / (
+            np.log2(M) * user_num
+        )
+        ans_all.ber_of_users["ZF"] = np.sum((np.abs(np.real(diff_ZF)) + np.abs(np.imag(diff_ZF))) / 2, axis=1) / (
+            np.log2(M) * case_num
+        )
+        ans_all.BER["ZF"] = np.mean(ans_all.ber_of_users["ZF"])
 
         for solver in self.config.solvers:
             # calc ber per trail
-            ans_all.ber_of_trials[solver] = np.sum(np.abs(diff[solver]) / 2, axis=0) / (np.log2(M)*user_num)
+            ans_all.ber_of_trials[solver] = np.sum(np.abs(diff[solver]) / 2, axis=0) / (np.log2(M) * user_num)
             # calc ber per user
             array_mid = diff[solver].shape[0] // 2
             diff_real_half = diff[solver][0:array_mid, :]
             diff_imag_half = diff[solver][array_mid:, :]
             diff_of_users = np.hstack((diff_real_half, diff_imag_half))
-            ans_all.ber_of_users[solver] = np.sum(np.abs(diff_of_users) / 2, axis=1) / (np.log2(M)*case_num)
+            ans_all.ber_of_users[solver] = np.sum(np.abs(diff_of_users) / 2, axis=1) / (np.log2(M) * case_num)
             ans_all.BER[solver] = np.mean(ans_all.ber_of_users[solver])
         ans_all.operation_count = ans.operation_count
         ans_all.SNR = snr
@@ -100,7 +109,7 @@ class MIMOParserStage(Stage):
         yield ans_all, debug_info
 
     @staticmethod
-    def parse_MIMO(benchmark:pathlib.Path) -> tuple[np.ndarray, np.ndarray, int, int, int]:
+    def parse_MIMO(benchmark: pathlib.Path) -> tuple[np.ndarray, np.ndarray, int, int, int]:
         """! Parses the MIMO benchmark from the given file.
 
         @param benchmark (pathlib.Path): the path to the benchmark to parse.
@@ -116,7 +125,7 @@ class MIMOParserStage(Stage):
             lines = f.readlines()
 
         # Parse dimensions
-        M: int = int(lines[0].split()[1]) # modulation scheme QAM-M
+        M: int = int(lines[0].split()[1])  # modulation scheme QAM-M
         ant_num: int = int(lines[1].split()[1])
         user_num: int = int(lines[2].split()[1])
 
@@ -148,8 +157,14 @@ class MIMOParserStage(Stage):
 
     @staticmethod
     def MIMO_to_Ising(
-        H: np.ndarray, x: np.ndarray, SNR: float, user_num: int, ant_num: int, M: int, seed:int=0,
-        is_hamming_encoding: bool = False
+        H: np.ndarray,
+        x: np.ndarray,
+        SNR: float,
+        user_num: int,
+        ant_num: int,
+        M: int,
+        seed: int = 0,
+        is_hamming_encoding: bool = False,
     ) -> tuple[IsingModel, np.ndarray, np.ndarray]:
         """!Transforms the MIMO model into an Ising model.
 
@@ -173,13 +188,13 @@ class MIMOParserStage(Stage):
             # BPSK scheme
             r = 1
             num_variables = np.shape(x)[0]
-            num_symbols = 2*num_variables
+            num_symbols = 2 * num_variables
         else:
-            if is_hamming_encoding: # with hamming encoding
+            if is_hamming_encoding:  # with hamming encoding
                 r = int(np.sqrt(M) - 1)
-            else: # with binary encoding
+            else:  # with binary encoding
                 r = int(np.ceil(np.log2(np.sqrt(M))))
-            num_variables = np.shape(x)[0]*2
+            num_variables = np.shape(x)[0] * 2
             num_symbols = num_variables
 
         if seed == 0:
@@ -190,25 +205,25 @@ class MIMOParserStage(Stage):
         y = H @ x
 
         # Compute the amplitude of the noise on the received symbols
-        power_y = np.abs(y)**2
+        power_y = np.abs(y) ** 2
         snr_real = 10 ** (SNR / 10)
         # var_noise = np.sqrt(power_y / SNR)
-        n = (np.random.randn(ant_num) + 1j * np.random.randn(ant_num)) # noise
-        power_n = np.abs(n)**2
-        n *= np.sqrt((power_y / snr_real) / power_n) # take noise power into account
+        n = np.random.randn(ant_num) + 1j * np.random.randn(ant_num)  # noise
+        power_n = np.abs(n) ** 2
+        n *= np.sqrt((power_y / snr_real) / power_n)  # take noise power into account
 
-        assert np.all(np.isclose(np.abs(y**2 / n**2) , snr_real))
+        assert np.all(np.isclose(np.abs(y**2 / n**2), snr_real))
 
         y += n
 
-        ytilde = np.block([np.real(y), np.imag(y)]) # 2*ant_num
+        ytilde = np.block([np.real(y), np.imag(y)])  # 2*ant_num
 
-        Htilde = np.block([[np.real(H), -np.imag(H)], [np.imag(H), np.real(H)]]) # 2*ant_num x 2*user_num
+        Htilde = np.block([[np.real(H), -np.imag(H)], [np.imag(H), np.real(H)]])  # 2*ant_num x 2*user_num
 
-        if is_hamming_encoding: # with hamming encoding
+        if is_hamming_encoding:  # with hamming encoding
             T = np.block([np.eye(num_symbols, num_variables) for _ in range(r)])
-        else: # with binary encoding
-            T = np.block([2**(r-i)*np.eye(num_symbols, num_variables) for i in range(1, r+1)])
+        else:  # with binary encoding
+            T = np.block([2 ** (r - i) * np.eye(num_symbols, num_variables) for i in range(1, r + 1)])
 
         if is_bpsk:
             xtilde = x
@@ -216,14 +231,14 @@ class MIMOParserStage(Stage):
             xtilde = np.block([np.real(x), np.imag(x)])
 
         ones_end = np.ones((num_symbols,))
-        constant = ytilde.T@ytilde - 2*ytilde.T @ Htilde @ (T@np.ones((r*num_variables,)) - \
-                                            (np.sqrt(M)-1)*ones_end)
+        constant = ytilde.T @ ytilde - 2 * ytilde.T @ Htilde @ (
+            T @ np.ones((r * num_variables,)) - (np.sqrt(M) - 1) * ones_end
+        )
 
-        bias = 2*(ytilde - Htilde@(T@np.ones((r*num_variables,))-(np.sqrt(M)-1)*ones_end))
+        bias = 2 * (ytilde - Htilde @ (T @ np.ones((r * num_variables,)) - (np.sqrt(M) - 1) * ones_end))
         bias = bias.T @ Htilde @ T
-        coupling = -2*T.T @ Htilde.T @ Htilde @ T
-        constant -= np.sum(np.diag(coupling))/2
+        coupling = -2 * T.T @ Htilde.T @ Htilde @ T
+        constant -= np.sum(np.diag(coupling)) / 2
 
         coupling = np.triu(coupling, k=1)
-        return IsingModel(coupling, bias, constant, name=f"MIMO_{SNR}"), xtilde, ytilde
-
+        return IsingModel(coupling, bias, constant, name=f"MIMO_{SNR}"), xtilde, y

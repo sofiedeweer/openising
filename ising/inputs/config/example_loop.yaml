@@ -45,6 +45,7 @@ seed:
 
 # Parameters for SCA
 num_iterations_SCA: 1
+T_init_SCA: 50.0
 T_final_SCA: 0.5
 q: 0.0
 q_final: 10.0
@@ -57,7 +58,6 @@ nb_flips: 1
 
 # Parameters for Multiplicative
 num_iterations_Multiplicative: 1
-dtMult: 0.01
 nb_flipping: 100
 cluster_threshold: 0.3
 init_cluster_size: 0.8
@@ -79,17 +79,14 @@ stop_criterion: 1e-6  # 1uV
 resistance: 1
 do_flipping: True
 coupling_annealing: True
+probability_start: 0.001799
 
 # Parameters for SB
 num_iterations_SB: 1
-dtSB: 0.01
+dtbSB: 0.01
+dtdSB: 0.01
 a0: 1.0
 c0: 0.0
-
-# Parameters for CIM
-num_iterations_CIM: 1
-dtCIM: 0.25
-zeta: 1.0
 
 #################################
 ## Problems hyperparameters
@@ -120,6 +117,10 @@ offset_ratio: 0.3
 # Parameters for noise stage
 device_noise: False
 noise_level: 0.1
+
+# Parameters for combine nodes stage
+combine_nodes: False
+nodes_scaling: 2
 
 #################################
 ## Dummy creator hyperparameters

@@ -32,7 +32,6 @@ def parse_hyperparameters(args: Namespace) -> dict[str:]:
     # Multiplicative parameters
     if "Multiplicative" in args.solvers:
         hyperparameters["num_iterations_Multiplicative"] = int(args.num_iterations_Multiplicative)
-        hyperparameters["dtMult"] = float(args.dtMult)
         hyperparameters["nb_flipping"] = int(args.nb_flipping)
         hyperparameters["cluster_threshold"] = float(args.cluster_threshold)
         hyperparameters["init_cluster_size"] = float(args.init_cluster_size)
@@ -45,6 +44,8 @@ def parse_hyperparameters(args: Namespace) -> dict[str:]:
         hyperparameters["delay_offset"] = float(args.delay_offset)
         hyperparameters["current"] = float(args.current)
         # hyperparameters["sigma_J"] = float(args.sigma_J)
+        hyperparameters["combine_nodes"] = bool(args.combine_nodes)
+        hyperparameters["nb_splits"] = int(args.nodes_scaling)
 
     # BRIM parameters
     if "BRIM" in args.solvers:
@@ -53,12 +54,13 @@ def parse_hyperparameters(args: Namespace) -> dict[str:]:
         hyperparameters["dtBRIM"] = float(args.dtBRIM)
         hyperparameters["do_flipping"] = bool(args.do_flipping)
         hyperparameters["coupling_annealing"] = bool(args.coupling_annealing)
+        hyperparameters["probability_start"] = float(args.probability_start)
 
     # SA-like parameters
-    if "SA" in args.solvers or "SCA" in args.solvers or "DSA" in args.solvers:
+    if "SA" in args.solvers or "DSA" in args.solvers:
         hyperparameters["initial_temp"] = float(args.T)
 
-    if "SA" in args.solvers or "DSA" in args.solvers:
+    if "SA" in args.solvers:
         hyperparameters["num_iterations_SA"] = int(args.num_iterations_SA)
         Tfin = float(args.T_final)
         hyperparameters["cooling_rate_SA"] = (
@@ -66,6 +68,15 @@ def parse_hyperparameters(args: Namespace) -> dict[str:]:
             if hyperparameters["initial_temp"] != 0
             else 1.0
         )
+    if "DSA" in args.solvers:
+        hyperparameters["num_iterations_DSA"] = int(args.num_iterations_DSA)
+        Tfin = float(args.T_final)
+        hyperparameters["cooling_rate_DSA"] = (
+            return_rx(hyperparameters["num_iterations_DSA"], hyperparameters["initial_temp"], Tfin)
+            if hyperparameters["initial_temp"] != 0
+            else 1.0
+        )
+
 
     # in-Situ SA parameters
     if "inSituSA" in args.solvers:
@@ -83,30 +94,31 @@ def parse_hyperparameters(args: Namespace) -> dict[str:]:
     if "SCA" in args.solvers:
         hyperparameters["num_iterations_SCA"] = int(args.num_iterations_SCA)
         hyperparameters["q"] = float(args.q)
-        hyperparameters["r_q"] = (
-            return_rx(hyperparameters["num_iterations_SCA"], hyperparameters["q"], float(args.q_final))
-            if hyperparameters["q"] != 0
-            else 1.0
-        )
+        if float(args.q_final) != -1:
+            hyperparameters["r_q"] = (
+                return_rx(hyperparameters["num_iterations_SCA"], hyperparameters["q"], float(args.q_final))
+                if hyperparameters["q"] != 0
+                else 1.0
+            )
+        else:
+            hyperparameters["r_q"] = 1.0
+        hyperparameters["initial_temp_SCA"] = float(args.T_init_SCA)
         Tfin = float(args.T_final_SCA)
         hyperparameters["cooling_rate_SCA"] = (
-            return_rx(hyperparameters["num_iterations_SCA"], hyperparameters["initial_temp"], Tfin)
-            if hyperparameters["initial_temp"] != 0
+            return_rx(hyperparameters["num_iterations_SCA"], hyperparameters["initial_temp_SCA"], Tfin)
+            if hyperparameters["initial_temp_SCA"] != 0
             else 1.0
         )
 
     # SB parameters
     if "dSB" in args.solvers or "bSB" in args.solvers:
         hyperparameters["num_iterations_SB"] = int(args.num_iterations_SB)
-        hyperparameters["dtSB"] = float(args.dtSB)
         hyperparameters["a0"] = float(args.a0)
         hyperparameters["c0"] = float(args.c0)
-
-    # CIM parameters
-    if "CIM" in args.solvers:
-        hyperparameters["num_iterations_CIM"] = int(args.num_iterations_CIM)
-        hyperparameters["dtCIM"] = float(args.dtCIM)
-        hyperparameters["zeta"] = float(args.zeta)
+    if "dSB" in args.solvers:
+        hyperparameters["dtdSB"] = float(args.dtdSB)
+    if"bSB" in args.solvers:
+        hyperparameters["dtbSB"] = float(args.dtbSB)
 
     return hyperparameters
 
@@ -225,9 +237,27 @@ def approximation_to_best_found(energy: np.ndarray[float], best_found:float) -> 
 
     @return np.ndarray[float]: the approximation in percentage.
     """
-    if best_found < 0:
-        return 100*np.abs(energy) / np.abs(best_found)
-    elif best_found > 0:
+    if best_found != 0.0:
         return 100*(1 - relative_to_best_found(energy, best_found))
     else:
-        return 1/np.ndarray([en if en != 0 else 1 for en in energy]) * 100
+        return 1/np.array([en if en != 0 else 1 for en in energy]) * 100
+
+def compute_ttt(energies:np.ndarray, computation_time:float, best_found:float, nb_runs:int, target:float=0.9) -> float:
+    """Computes the time to target of a set of energies and the average computation time.
+
+    @param energies (np.ndarray): set of solution energies
+    @param computation_time (float): average computation time over all runs.
+    @param best_found (float): best reported solution of problem
+    @param nb_runs (int): amount of runs the solver went through.
+    @param target (float): target value from best found. Default set to 0.9.
+
+    @returns ttt (float): time to target.
+    """
+    result = computation_time * np.log(1 - 0.99)
+    rel_error = relative_to_best_found(np.array(energies), best_found)
+    P_s = np.sum(rel_error <= (1-target)) / nb_runs
+    if P_s >= 0.99:
+        denom = np.log(1 - 0.99)
+    else:
+        denom = np.log(1-P_s)
+    return result / denom

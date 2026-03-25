@@ -42,7 +42,8 @@ class QKPParserStage(Stage):
         @return model (IsingModel): generated model from the graph
         """
         if penalty_value < 1.0:
-            raise ValueError("Penalty value should be larger than 1.0")
+            LOGGER.warning(f"Penalty value is {penalty_value} < 1. Changing to 1.")
+            penalty_value = 1.0
 
         N = len(graph.nodes)
         profit_edges = nx.get_edge_attributes(graph, "profit")

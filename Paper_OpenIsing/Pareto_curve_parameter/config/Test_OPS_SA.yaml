@@ -3,14 +3,26 @@
 #################################
 
 # Benchmark file name
-benchmark: ./ising/benchmarks/MIMO/user5_ant5_M16.txt
+benchmark: 
+  - ./ising/benchmarks/G/G1.txt
+  - ./ising/benchmarks/G/G6.txt
+  - ./ising/benchmarks/G/G14.txt
+  - ./ising/benchmarks/biqmac/be/be100.1.sparse
+  - ./ising/benchmarks/biqmac/beasley/bqp50-1.sparse
+  - ./ising/benchmarks/biqmac/gka/gka1a.sparse
+  - ./ising/benchmarks/TSP/burma14.tsp
+  - ./ising/benchmarks/TSP/ulysses16.tsp
+  - ./ising/benchmarks/TSP/ulysses22.tsp
+  - ./ising/benchmarks/Knapsack/jeu_100_25_1.txt
+  - ./ising/benchmarks/Knapsack/jeu_200_25_1.txt
+  - ./ising/benchmarks/Knapsack/jeu_100_50_1.txt
 
 # Solver to use: [BRIM, SA, DSA, inSituSA, bSB, dSB, SCA, Multiplicative, CIM, all]
 solvers:
-  - bSB
+  - SA
 
 # Number of trials
-nb_runs: 5
+nb_runs: 100
 
 # Use gurobi or not
 use_gurobi: False
@@ -27,72 +39,36 @@ eigenvalue_start: False
 # Logging or not
 gen_logfile: False
 logfile_discrimination: None
-
 #################################
 ## Solvers hyperparameters
 #################################
 
 # Parameters for SA
-num_iterations_SA: 1
-T: 50.0
-T_final: 0.05
+num_iterations_SA: 50000
+T: 50
+  # - 25.0
+  # - 50.0
+  # - 75.0
+  # - 100.0
+  # - 150.0
+T_final: 
+  - 5.0
+  - 1.0
+  - 0.5
+  - 0.01
+  - 0.05
 seed: 100
-
-# Parameters for SCA
-num_iterations_SCA: 1
-T_init_SCA: 50.0
-T_final_SCA: 0.5
-q: 0.0
-q_final: 10.0
-
-# Parameters for in-Situ SA
-initial_temp_inSituSA: 690
-T_final_inSituSA: 0.5
-num_iterations_inSituSA: 1
-nb_flips: 1
-
-# Parameters for Multiplicative
-num_iterations_Multiplicative: 1
-nb_flipping: 100
-cluster_threshold: 0.3
-init_cluster_size: 0.8
-end_cluster_size: 0.0625
-exponent: 3.0
-cluster_choice: "random"
-current: 1.0
-capacitance: 1
-accumulation_delay: 0.
-broadcast_delay: 0.
-delay_offset: 0.0
-# sigma_J: -1.0
-ode_choice: "FE"
-
-# Parameters for BRIM
-num_iterations_BRIM: 1
-dtBRIM: 1e-6  # 10us
-stop_criterion: 1e-6  # 1uV
-resistance: 1
-do_flipping: True
-coupling_annealing: True
-probability_start: 0.001799
-
-# Parameters for SB
-num_iterations_SB: 1
-dtbSB: 0.01
-dtdSB: 0.01
-a0: 1.0
-c0: 0.0
 
 #################################
 ## Problems hyperparameters
 #################################
 
 # Parameters for TSP
-weight_constant: 0
+weight_constant: 1.2
 
 # Parameters for MIMO
 SNR: 10
-nb_trials: 100
+nb_trials: 1
 mimo_seed: 12
 is_hamming_encoding: False
 
@@ -113,17 +89,12 @@ offset_ratio: 0.3
 device_noise: False
 noise_level: 0.1
 
-# Parameters for mismatch stage
 mismatch_std: 0.0
-
-# Parameters for combine nodes stage
 combine_nodes: False
-nodes_scaling: 2
-
 #################################
 ## Dummy creator hyperparameters
 #################################
-dummy_creator: True
+dummy_creator: False
 
 # Parameters for dummy MIMO
 dummy_seed: 42

@@ -278,6 +278,7 @@ def plot_energy_time_multiple(
     plt.figure()
     for solver_name, energies in avg_energies.items():
         x_points = np.arange(0, x_data[solver_name][0], x_data[solver_name][0] / len(energies[0]))
+        x_points = x_points[:len(energies[0])]
         plt.semilogx(x_points, energies[0], label=f"{solver_name}: {energies[0][-1]:.2f}")
         plt.fill_between(x_points, min_energies[solver_name][0], max_energies[solver_name][0], alpha=0.2)
     if best_found is not None:

@@ -23,6 +23,7 @@ class InSituSASolver(SolverBase):
         cooling_rate_inSituSA: float,
         nb_flips: int = -1,
         seed: int | None = None,
+        stop_criterion:bool=True,
         file: pathlib.Path | None = None,
     ) -> tuple[np.ndarray, float]:
         """
@@ -42,6 +43,9 @@ class InSituSASolver(SolverBase):
         """
         if nb_flips == -1:
             nb_flips = 2
+
+        if not stop_criterion:
+            self.zero_en_length = num_iterations
 
         # seed the random number generator. Use a timestamp-based seed if non is provided.
         if seed is None:
@@ -68,7 +72,8 @@ class InSituSASolver(SolverBase):
                                   cooling_rate=cooling_rate_inSituSA,
                                   nb_flips=nb_flips,
                                   seed=seed,)
-
+            k=0
+            current_length = 0
             start_time = time.time()
 
             # Setup initial state and energy
@@ -77,7 +82,7 @@ class InSituSASolver(SolverBase):
             energy = model.evaluate(state)
             if logger.filename is not None:
                 logger.log(time=0.0, energy=energy, state=state)
-            for _ in range(num_iterations):
+            while k < num_iterations and current_length < self.zero_en_length:
                 # Select a random node to flip
                 sigma_f = np.where(
                     np.isin(
@@ -99,13 +104,17 @@ class InSituSASolver(SolverBase):
                 # Determine whether to accept the new state (Metropolis)
                 if delta <= 0:
                     state = sigma_new
+                    current_length = 0
                 elif delta >= rand:
                     state = sigma_new
+                    current_length = 0
+                else:
+                    current_length += 1 if stop_criterion else 0
                 # state = sigma_new if change_state else state  # accept correct state for flip
 
                 # Decrease the temperature
                 Temp *= cooling_rate_inSituSA
-
+                k += 1
                 # Log current iteration data
                 if logger.filename is not None:
                     elapsed_time = time.time() - start_time
@@ -122,5 +131,7 @@ class InSituSASolver(SolverBase):
                     total_operations=nb_operations,
                     total_time=elapsed_time,
                 )
+            else:
+                elapsed_time = time.time() - start_time
 
-        return state, energy, elapsed_time, nb_operations
+        return state, energy, elapsed_time, nb_operations, k

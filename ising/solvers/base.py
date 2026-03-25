@@ -10,11 +10,16 @@ class SolverBase(ABC):
 
     def __init__(self):
         self.name= ""
+        self.zero_en_length = 50
+        self.max_energy_change = 1e-6
 
 
     @abstractmethod
     def solve(self, model: IsingModel):
         pass
+
+    def handle_stop_criterion(self, old, new, order=None):
+        return np.linalg.norm(old-new, ord=order)/np.linalg.norm(old, ord=order)
 
     def log_metadata(
         self,

@@ -241,9 +241,9 @@ class DummyCreatorStage(Stage):
         sigma_phi = np.array([10 * np.pi / 180] * user_num)
 
         # H = np.random.random((ant_num, user_num)) + 1j*np.random.random((ant_num, user_num*np.pi/180))
-        H = np.zeros((ant_num, user_num), dtype="complex_")
+        H = np.zeros((ant_num, user_num), dtype=np.complex128)
         for i in range(user_num):
-            C = np.zeros((ant_num, ant_num), dtype="complex_")
+            C = np.zeros((ant_num, ant_num), dtype=np.complex128)
             phi = mean_phi[i]
             sigma = sigma_phi[i]
             for m in range(ant_num):

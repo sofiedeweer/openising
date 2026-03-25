@@ -39,7 +39,7 @@ The config file is written in YAML. It must has the following parameters:
 
 **Parameters for SCA solver**
 
-*T:* [float] initial temperature for the annealing solvers (in-Situ SA, SA and SCA).
+*T_init_SCA:* [float] initial temperature for the annealing solvers (in-Situ SA, SA and SCA).
 
 *T_final:* [float] final temperature, which should be lower than *T*, for the annealing solvers (in-Situ SA, SA and SCA).
 
@@ -58,8 +58,6 @@ The config file is written in YAML. It must has the following parameters:
 *seed:* [int] the seed used for random number generation. This is important to be able to recreate results.
 
 **Parameters for Multiplicative solver**
-
-*dtMult:* [float] time step for the Multiplicative solver.
 
 *nb_flipping:* [int] amount of times flipping will be done. 
 
@@ -101,20 +99,17 @@ The config file is written in YAML. It must has the following parameters:
 
 *capacitance:* [float] the capacitance.
 
+*probability_start*: [float] The starting probability with which to flip nodes. High means that many nodes have a higher chance to flip, i.e more nodes will be flipped.
+
 **Parameters for SB (bSB/dSB) solver**
 
-*dtSB:* [float] the time step used in the Simulated Bifurcation solvers (dSB and bSB).
+*dtbSB:* [float] the time step used in the ballistic Simulated Bifurcation solver.
+
+*dtdSB:* [float] the time step used in the discrete Simulated Bifurcation solver.
 
 *a0:* [float] the bifurcation parameter to which a(t) will converge to. Defaults to 1.
 
 *c0:* [float] the parameter that defines the strength of the Ising part in the solver. When it is set to 0 will the optimal parameter be used.
-
-**Parameters for Coherent Ising Machine solver**
-*dtCIM*: [float] the time step used to simulate the equations.
-
-*zeta*: [float] the parameter used for displacement.
-
-*seed:* [positive int] The seed used for random number generation.
 
 ## Following parameters are required only when the targeted benchmark is TSP.
 
@@ -169,6 +164,12 @@ Besides, the following parameters will be added within returned ans:
 **If MismatchStage is used, the following parameter is required:**
 
 *mismatch_std:* [float] the standard deviation present in the model. When 0.0, the mismatch is automatically turned off.
+
+**If CombineNodesStage is used, the following parameters are required:**
+
+*combine_nodes:* [bool] whether or not to activate the CombineNodesStage. 
+
+*nodes_scaling:* [int] the amount of nodes each node will be split into.
 
 **If DummyCreatorStage is used, the following parameters are required:**
 
