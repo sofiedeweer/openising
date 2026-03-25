@@ -102,7 +102,7 @@ class SASolver(SolverBase):
                     current_length = 0
                 else:
                     state[node] = -state[node]  # Revert the flip if the new state is rejected
-                    current_length += 1
+                    current_length += 1 if stop_criterion else 0
                 # Decrease the temperature
                 T = cooling_rate_SA * T  # 1
                 k += 1

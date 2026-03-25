@@ -162,13 +162,17 @@ class SimulationStage(Stage):
                     )
                 else:
                     logfile = None
-
+                stop_crit = (
+                    self.config["stop_criterion_iterations"]
+                    if hasattr(self.config, "stop_criterion_iterations")
+                    else False
+                )
                 optim_state, optim_energy, computation_time, nb_operations, total_iterations = self.run_solver(
                     solver,
                     initial_state,
                     self.ising_model,
                     logfile,
-                    stop_criterion=self.config.stop_criterion_iterations,
+                    stop_criterion_it=stop_crit,
                     **hyperparameters,
                 )
                 optim_state_collect[solver].append(optim_state)
@@ -201,7 +205,7 @@ class SimulationStage(Stage):
         s_init: np.ndarray,
         model: IsingModel,
         logfile: pathlib.Path | None = None,
-        stop_criterion: bool = False,
+        stop_criterion_it: bool = False,
         **hyperparameters,
     ) -> tuple[np.ndarray, float]:
         """! Solves the given problem with the specified solver.
@@ -267,7 +271,7 @@ class SimulationStage(Stage):
             func, params = solvers[solver]
             chosen_hyperparameters = {key: hyperparameters[key] for key in params if key in hyperparameters}
             if solver in ["SA", "SCA", "bSB", "dSB", "inSituSA"]:
-                chosen_hyperparameters["stop_criterion"] = stop_criterion
+                chosen_hyperparameters["stop_criterion"] = stop_criterion_it
             optim_state: np.ndarray
             optim_energy: float | None
             optim_state, optim_energy, computation_time, operation_count, total_iterations = func(

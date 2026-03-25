@@ -134,7 +134,7 @@ class ballisticSB(SB):
                 if log.filename is not None:
                     elapsed_time = time.time() - start_time
                     log.log(time=elapsed_time, energy=energy_new, positions=x)
-                if energy_new == energy:
+                if energy_new == energy and stop_criterion:
                     current_length += 1
                 else:
                     current_length = 0
@@ -233,7 +233,7 @@ class discreteSB(SB):
                 log.log(time=0.0, energy=energy, positions=x)
             k=0
             diff=np.inf
-            x_prev=x
+            x_prev=np.copy(x)
             start_time = time.time()
             while k < num_iterations and diff>stop_criterion:
                 atk = self.at(tk, a0, dtdSB, num_iterations) # 3
@@ -252,7 +252,8 @@ class discreteSB(SB):
                     energy = model.evaluate(sample)
                     log.log(time=elapsed_time, energy=energy, positions=x)
                 k += 1
-                diff = self.handle_stop_criterion(x_prev, x)
+                diff = self.handle_stop_criterion(x_prev, x) if stop_criterion else 1
+                x_prev = np.copy(x)
             nb_operations = num_iterations * (2 * N**2 + 9 * N + 5)
             if log.filename is not None:
                 log.write_metadata(

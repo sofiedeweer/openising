@@ -111,7 +111,7 @@ class InSituSASolver(SolverBase):
                     state = sigma_new
                     current_length = 0
                 else:
-                    current_length += 1
+                    current_length += 1 if stop_criterion else 0
                 # state = sigma_new if change_state else state  # accept correct state for flip
 
                 # Decrease the temperature

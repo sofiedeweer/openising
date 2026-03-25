@@ -86,7 +86,7 @@ class SCA(SolverBase):
             energy = model.evaluate(state.astype(np.float32))
             if log.filename is not None:
                 log.log(time=0.0, energy=energy, state=state)
-            while k < num_iterations and current_length > zero_en_length:
+            while k < num_iterations and current_length < zero_en_length:
                 hs = J@state + model.h # 2*N**2 + N
 
                 Prob = self.get_prob(hs, state, q, T) # 2*N + 3*N
@@ -102,12 +102,13 @@ class SCA(SolverBase):
                 energy_new = model.evaluate(state.astype(np.float32))
                 if log.filename is not None:
                     elapsed_time = time.time() - start_time
-                    log.log(time=elapsed_time, energy=energy, state=state)
+                    log.log(time=elapsed_time, energy=energy_new, state=state)
 
-                if self.handle_stop_criterion(energy, energy_new) < 1e-6:
+                if stop_criterion and self.handle_stop_criterion(energy, energy_new) < 1e-6:
                     current_length += 1
                 else:
                     current_length = 0
+                energy = energy_new
                 k+=1
 
             nb_operations = num_iterations * (2 * N**2 + 8 * N + N / 2 + 2)

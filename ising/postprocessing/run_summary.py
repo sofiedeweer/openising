@@ -4,12 +4,24 @@ import numpy as np
 
 from ising.utils.flow import compute_ttt, approximation_to_best_found
 
+
 def summarize_runs(output_file, ans, problem_type, config_path):
     solvers = ans.config.solvers
     mean_computation_time = {solver: np.mean(ans.computation_time[solver]) for solver in solvers}
     comp_str = " ".join([f"{mean_computation_time[solver]:.4e}s" for solver in solvers])
     solver_str = " ".join(solvers)
     operation_str = " ".join([f"{ans.operation_count[solver]}" for solver in solvers])
+    operation_it_str = " ".join(
+        [
+            f"{
+                ans.operation_count[solver]
+                / ans.config.__getattribute__(
+                    f'num_iterations_{solver}' if solver not in ['bSB', 'dSB'] else 'num_iterations_SB'
+                )
+            }"
+            for solver in solvers
+        ]
+    )
     if problem_type == "MIMO":
         logging.info("BER: %s", ans.BER)
         if not ans.config.dummy_creator:
@@ -28,6 +40,7 @@ def summarize_runs(output_file, ans, problem_type, config_path):
                 f.write(f"solver| {solver_str}\n")
                 f.write(f"computation time| {comp_str}\n")
                 f.write(f"operation count| {operation_str}\n")
+                f.write(f"operation count / it| {operation_it_str}\n")
 
     elif not ans.config.dummy_creator:
         benchmark = ans.benchmark
@@ -45,7 +58,7 @@ def summarize_runs(output_file, ans, problem_type, config_path):
             for solver in solvers
         }
         approximation = {
-            solver: approximation_to_best_found(np.array(ising_energies[solver]), best_found) for solver in solvers
+            solver: approximation_to_best_found(np.array(ising_energy_avg[solver]), best_found) for solver in solvers
         }
         approx_str = " ".join([f"{approximation[solver]:.2f}%" for solver in solvers])
         tts_str = " ".join([f"{tts[solver]:.4e}s" for solver in solvers])
@@ -64,14 +77,15 @@ def summarize_runs(output_file, ans, problem_type, config_path):
             f.write(f"computation time| {comp_str}\n")
             f.write(f"TTT 0.9| {tts_str}\n")
             f.write(f"operation count| {operation_str}\n")
+            f.write(f"operation count / it| {operation_it_str}\n")
             f.write(f"Approximation value| {approx_str}\n")
             f.write("\n")
 
         logging.info(
-        "benchmark: %s, \n reference: %s,\n energy max: %s, \n min: %s, \n avg: %s",
-        benchmark,
-        best_found,
-        ising_energy_max,
-        ising_energy_min,
-        ising_energy_avg,
-    )
+            "benchmark: %s, \n reference: %s,\n energy max: %s, \n min: %s, \n avg: %s",
+            benchmark,
+            best_found,
+            ising_energy_max,
+            ising_energy_min,
+            ising_energy_avg,
+        )

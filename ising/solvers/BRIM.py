@@ -135,7 +135,7 @@ class BRIM(SolverBase):
         coupling = triu_to_symm(new_model.J).astype(np.float32) / resistance
 
         res_average = np.mean(np.sum(coupling, axis=1))
-        tau = 1 / (res_average * capacitance)
+        tau = capacitance/res_average
 
         # Make sure the correct seed is used
         if seed == 0:
