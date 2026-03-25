@@ -89,7 +89,7 @@ for i, problem in enumerate(problem_type):
                 ans, _ = api.get_hamiltonian_energy(
                     problem_type=problem, config_path=str(config_file.relative_to(TOP)), logging_level=logging_level
                 )
-                ans_all[problem][value].append(ans)
+                ans_all[problem][value][benchmark]=ans
                 ans.save(data_file)
                 LOGGER.info(f"Results stored in {data_file}")
 

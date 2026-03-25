@@ -11,11 +11,12 @@ os.environ["OPENBLAS_NUM_THREADS"] = str(4)
 import numpy as np
 from ising.stages import TOP
 from ising import api
+from scipy.stats import gmean
 from ising.stages.simulation_stage import Ans
 from ising.postprocessing.run_summary import summarize_runs
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from ising.utils.flow import relative_to_best_found
+
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
 from Paper_OpenIsing import BASE_PATH
 
 
@@ -45,7 +46,7 @@ logging_format = "%(asctime)s - %(filename)s - %(funcName)s +%(lineno)s - %(leve
 logging.basicConfig(level=logging_level, format=logging_format, stream=sys.stdout)
 
 # Input file directory
-problem_types = ["Maxcut", "TSP", "QKP", "Biqmac"]  # Specify the problem type [Maxcut, TSP, ATSP, MIMO] "MIMO",
+problem_types = ["Maxcut", "Biqmac", "TSP", "QKP"]  # Specify the problem type [Maxcut, TSP, ATSP, MIMO] "MIMO",
 # Initialize all paths
 base_path = BASE_PATH / "Pareto_curve_OPS"
 data_path = base_path / "data"
@@ -61,8 +62,7 @@ nb_points = len(config["num_iterations_SA"])
 solvers = list(config["solvers"])
 
 ans_all = {
-    problem: {benchmark: [Ans() for _ in range(nb_points)] for benchmark in range(nb_benchmarks)}
-    for problem in problem_types
+    problem: {point: [Ans() for _ in range(nb_benchmarks)] for point in range(nb_points)} for problem in problem_types
 }
 for problem_type in problem_types:
     config_path_problem = config_path / f"pareto_curves_{problem_type}.yaml"
@@ -80,7 +80,7 @@ for problem_type in problem_types:
         for point in range(nb_points):
             data_file = data_path / f"{problem_type}_benchmark{ind}_point{point}.pkl"
             if data_file.exists():
-                ans_all[problem_type][ind][point].load(data_file)
+                ans_all[problem_type][point][ind].load(data_file)
             else:
                 for solver in solvers:
                     new_config[
@@ -94,115 +94,76 @@ for problem_type in problem_types:
                     config_path=str(file.relative_to(TOP)),
                     logging_level=logging_level,
                 )
-                ans_all[problem_type][ind][point] = ans
+                ans_all[problem_type][point][ind] = ans
                 ans.save(data_file)
 markers = ["s", "d", "^", "o", "p", "v"]
 
-fig_op, axes = plt.subplots(nb_benchmarks, len(problem_types), figsize=(21, 5))
+fig_op, axes = plt.subplots(1, len(problem_types), figsize=(28, 5))
 labels = dict()
-for problem_type, ax in zip(problem_types, axes.T):
-    output_file = base_path / f"{problem_type}_simulation_summary.txt"
-    for benchmark, ax_bench in zip(range(nb_benchmarks), ax):
+for problem_type, ax in zip(problem_types, axes):
+    output_file = base_path / f"simulation_summary_{problem_type}.pkl"
+    mean_en = {solver: [] for solver in solvers}
+    std_en = {solver: [] for solver in solvers}
+    ops = {solver: [] for solver in solvers}
+    for point in range(nb_points):
         with output_file.open("a") as f:
             f.write("=================================================\n")
-        if problem_type != "Maxcut":
-            axins = inset_axes(ax_bench, width="45%", height="65%", loc="upper right")
-        mean_en = {solver: [] for solver in solvers}
-        min_en = {solver: [] for solver in solvers}
-        max_en = {solver: [] for solver in solvers}
-        ops = {solver: [] for solver in solvers}
-        for point in range(nb_points):
-            with output_file.open("a") as f:
-                f.write(f"======= Simulation point {point} =======\n")
-            ans = ans_all[problem_type][benchmark][point]
-            if point == 0:
-                best_found = ans.best_found
+            f.write(f"======= Simulation point {point} =======\n")
+        ans_list = ans_all[problem_type][point]
+        energies = {solver: np.array([]) for solver in solvers}
+        operations = {solver: [] for solver in solvers}
+        for ans_bench in ans_list:
             summarize_runs(
                 output_file,
-                ans,
+                ans_bench,
                 problem_type,
-                config_path / f"config_pareto_curve_{problem_type}_point{point}.yaml",
+                str((config_path / f"config_pareto_curve_{problem_type}_point{point}.yaml").relative_to(TOP)),
             )
-            en = ans.energies[solver]
-            for solver in solvers:
-                ops[solver].append(ans.operation_count[solver])
-                mean_en[solver].append(np.mean(en))
-                min_en[solver].append(np.min(en))
-                max_en[solver].append(np.max(en))
-        ax_bench.axhline(y=best_found, linestyle="--", color="r", label="Best found Ising energy")
-        ax_bench.axhline(
-            y=best_found + 0.1 * np.abs(best_found),
-            linestyle="-.",
-            color="k",
-            label="0.9 of best found Ising Energy",
-        )
 
+            for solver in solvers:
+                energies[solver] = np.append(
+                    energies[solver], relative_to_best_found(np.array(ans_bench.energies[solver]), ans_bench.best_found)
+                )
+                operations[solver].append(ans_bench.operation_count[solver])
         for solver in solvers:
-            lab = solver + int(solver == "BRIM") * " (estimated)"
-            err = ax_bench.plot(
-                ops[solver],
-                mean_en[solver],
-                linestyle="-" if solver != "BRIM" else "--",
-                marker=markers[solvers.index(solver)],
-                alpha=1 if solver != "BRIM" else 0.7,
-                label=lab,
-                markersize=10,
-            )
-            ax_bench.fill_between(
-                ops[solver],
-                np.array(mean_en[solver]) - np.array(min_en[solver]),
-                np.array(max_en[solver]) - np.array(mean_en[solver]),
-            )
-        if len(err) > 1:
+            mean = np.mean(energies[solver])
+            mean_en[solver].append(mean)
+            std_en[solver].append(np.std(energies[solver])/mean)
+            ops[solver].append(gmean(operations[solver]))
+
+    for solver in solvers:
+        lab = solver + int(solver == "BRIM") * " (estimated)"
+        err = ax.plot(
+            ops[solver],
+            mean_en[solver],
+            linestyle="-" if solver != "BRIM" else "--",
+            marker=markers[solvers.index(solver)],
+            alpha=1 if solver != "BRIM" else 0.7,
+            label=lab,
+            markersize=10,
+        )
+        ax.fill_between(ops[solver],
+                        np.array(mean_en[solver]) - np.array(std_en[solver]),
+                        np.array(mean_en[solver]) + np.array(std_en[solver]),
+                        alpha=0.3)
+        if len(err) >= 1:
             labels[lab] = err[0]
         else:
             labels[lab] = err
-        if problem_type != "Maxcut":
-            axins.plot(
-                ops[solver],
-                mean_en[solver],
-                linestyle="-" if solver != "BRIM" else "--",
-                marker=markers[solvers.index(solver)],
-                alpha=1 if solver != "BRIM" else 0.7,
-                label=lab,
-                markersize=10,
-            )
-            axins.fill_between(
-                ops[solver],
-                np.array(mean_en[solver]) - np.array(min_en[solver]),
-                np.array(max_en[solver]) - np.array(mean_en[solver]),
-            )
 
-        ax_bench.set_xscale("log")
-        ax_bench.grid(which="major", linestyle="--")
-        ax_bench.set_xlabel("Operation count", fontsize=20)
-        ax_bench.set_title(ans.benchmark)
-        change_yticks(ax, problem_type, best_found, True)
-
-        if problem_type == "Maxcut":
-            problem_type_ = "Max Cut"
-            ax_bench.set_ylabel("Ising Energy", fontsize=20)
-        else:
-            problem_type_ = problem_type
-            axins.grid(which="major", linestyle="--")
-            axins.axhline(y=best_found, linestyle="--", color="r")
-            axins.axhline(y=best_found + 0.1 * np.abs(best_found), linestyle="-.", color="k")
-            axins.set_xscale("log")
-            axins.set_xlim((1e7, 3e11))
-            if problem_type == "QKP":
-                axins.set_ylim(best_found - 800, best_found + 6 * np.abs(best_found))
-            else:
-                axins.set_ylim(best_found - 200, best_found + 2 * np.abs(best_found))
-            axins.yaxis.tick_right()
-            change_yticks(axins, problem_type, best_found, False)
-
-label_best = Line2D([0], [0], color="red", linestyle="--")
-label_09 = Line2D([0], [0], color="k", linestyle="-.")
-
+    ax.set_yscale("log")
+    ax.set_xscale("log")
+    ax.set_xlabel("Operation Count", fontsize=20)
+    if problem_type == "Maxcut":
+        problem_type_ = "Max Cut"
+        ax.set_ylabel("Relative Ising Energy to Best Found", fontsize=20)
+    else:
+        problem_type_ = problem_type
+    ax.set_title(problem_type_)
 fig_op.tight_layout()
 fig_op.legend(
-    list(labels.values()) + [label_best, label_09],
-    list(labels.keys()) + ["Best found Ising energy", "0.9 of best found Ising energy"],
+    list(labels.values()),
+    list(labels.keys()),
     fontsize=20,
     loc="upper center",
     ncol=len(solvers) + 2,
