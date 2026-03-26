@@ -57,34 +57,6 @@ The config file is written in YAML. It must has the following parameters:
 
 *seed:* [int] the seed used for random number generation. This is important to be able to recreate results.
 
-**Parameters for Multiplicative solver**
-
-*nb_flipping:* [int] amount of times flipping will be done. 
-
-*cluster_threshold:* [float] threshold value for designing the cluster.
-
-*init_cluster_size:* [float] the beginning cluster size for flipping. This value is a float between 0 and 1.
-
-*end_cluster_size:* [float] final cluster size for flipping.This value is a float and between 0 and 1.
-
-*cluster_choice:* [str] The choice for the cluster. The choices are random, gradient, frequency, weighted_mean_smallest, weighted_mean_largest.
-
-*exponent:* [float] the exponent by which the exponential function of cluster size changes.
-
-*current:* [float] the amount of unit current flows through the cells.
-
-*capacitance:* [float] the capacitance.
-
-*accumulation_delay:* [float] The amount of accumulation delay present. The value represent the fraction of the time constant between two coupling nodes.
-
-*broadcast_delay:* [float] The same as accumulation delay, but now in the boradcast dimension.
-
-*delay_offset:* [float] Amount of delay due to the comparator as a fraction of the time constant.
-
-<!-- *sigma_J:* [float] the amount of standard deviation present in the mismatch of the coupling unit. When -1 this is disabled in the simulation.  -->
-
-*ode_choice:* [str] which ODE solver to perform the simulation with. Currently RK (Runge-Kutta 4) and FE (Forward Euler) are implemented.
-
 **Parameters for BRIM solver**
 
 *dtBRIM:* [float] time step used for the BRIM solver.

@@ -25,28 +25,6 @@ def parse_hyperparameters(args: Namespace) -> dict[str:]:
     # seed hyperparameter
     hyperparameters["seed"] = int(args.seed)
 
-    if "Multiplicative" in args.solvers or "BRIM" in args.solvers:
-        hyperparameters["capacitance"] = float(args.capacitance)
-        hyperparameters["stop_criterion"] = float(args.stop_criterion)
-
-    # Multiplicative parameters
-    if "Multiplicative" in args.solvers:
-        hyperparameters["num_iterations_Multiplicative"] = int(args.num_iterations_Multiplicative)
-        hyperparameters["nb_flipping"] = int(args.nb_flipping)
-        hyperparameters["cluster_threshold"] = float(args.cluster_threshold)
-        hyperparameters["init_cluster_size"] = float(args.init_cluster_size)
-        hyperparameters["end_cluster_size"] = float(args.end_cluster_size)
-        hyperparameters["cluster_choice"] = args.cluster_choice
-        hyperparameters["exponent"] = float(args.exponent)
-        hyperparameters["ode_choice"] = args.ode_choice
-        hyperparameters["accumulation_delay"] = float(args.accumulation_delay)
-        hyperparameters["broadcast_delay"] = float(args.broadcast_delay)
-        hyperparameters["delay_offset"] = float(args.delay_offset)
-        hyperparameters["current"] = float(args.current)
-        # hyperparameters["sigma_J"] = float(args.sigma_J)
-        hyperparameters["combine_nodes"] = bool(args.combine_nodes)
-        hyperparameters["nb_splits"] = int(args.nodes_scaling)
-
     # BRIM parameters
     if "BRIM" in args.solvers:
         hyperparameters["resistance"] = float(args.resistance)
@@ -55,24 +33,15 @@ def parse_hyperparameters(args: Namespace) -> dict[str:]:
         hyperparameters["do_flipping"] = bool(args.do_flipping)
         hyperparameters["coupling_annealing"] = bool(args.coupling_annealing)
         hyperparameters["probability_start"] = float(args.probability_start)
-
-    # SA-like parameters
-    if "SA" in args.solvers or "DSA" in args.solvers:
-        hyperparameters["initial_temp"] = float(args.T)
+        hyperparameters["capacitance"] = float(args.capacitance)
+        hyperparameters["stop_criterion"] = float(args.stop_criterion)
 
     if "SA" in args.solvers:
+        hyperparameters["initial_temp"] = float(args.T)
         hyperparameters["num_iterations_SA"] = int(args.num_iterations_SA)
         Tfin = float(args.T_final)
         hyperparameters["cooling_rate_SA"] = (
             return_rx(hyperparameters["num_iterations_SA"], hyperparameters["initial_temp"], Tfin)
-            if hyperparameters["initial_temp"] != 0
-            else 1.0
-        )
-    if "DSA" in args.solvers:
-        hyperparameters["num_iterations_DSA"] = int(args.num_iterations_DSA)
-        Tfin = float(args.T_final)
-        hyperparameters["cooling_rate_DSA"] = (
-            return_rx(hyperparameters["num_iterations_DSA"], hyperparameters["initial_temp"], Tfin)
             if hyperparameters["initial_temp"] != 0
             else 1.0
         )

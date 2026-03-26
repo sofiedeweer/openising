@@ -17,9 +17,7 @@ from ising.solvers.BRIM import BRIM
 from ising.solvers.SB import ballisticSB, discreteSB
 from ising.solvers.SCA import SCA
 from ising.solvers.SA import SASolver
-from ising.solvers.DSA import DSASolver
 from ising.solvers.inSitu_SA import InSituSASolver
-from ising.solvers.Multiplicative import Multiplicative
 
 
 class SimulationStage(Stage):
@@ -234,35 +232,11 @@ class SimulationStage(Stage):
                     "probability_start" if hasattr(self.config, "probability_start") else None,
                 ],
             ),
-            "Multiplicative": (
-                Multiplicative().solve,
-                [
-                    "seed",
-                    "current",
-                    "capacitance",
-                    "nb_flipping",
-                    "cluster_threshold",
-                    "init_cluster_size",
-                    "end_cluster_size",
-                    "exponent",
-                    "cluster_choice",
-                    "ode_choice",
-                    "stop_criterion",
-                    "accumulation_delay",
-                    "broadcast_delay",
-                    "delay_offset",
-                    "sigma_J",
-                    "sigma_C",
-                    "combine_nodes",
-                    "nb_splits",
-                ],
-            ),
             "inSituSA": (
                 InSituSASolver().solve,
                 ["initial_temp_inSituSA", "cooling_rate_inSituSA", "nb_flips", "seed"],
             ),
             "SA": (SASolver().solve, ["initial_temp", "cooling_rate_SA", "seed"]),
-            "DSA": (DSASolver().solve, ["initial_temp", "cooling_rate_DSA", "seed"]),
             "SCA": (SCA().solve, ["initial_temp_SCA", "cooling_rate_SCA", "q", "r_q", "seed"]),
             "bSB": (ballisticSB().solve, ["c0", "dtbSB", "a0", "seed"]),
             "dSB": (discreteSB().solve, ["c0", "dtdSB", "a0", "seed"]),

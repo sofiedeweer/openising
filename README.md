@@ -13,7 +13,7 @@ and strategies in software and hardware.
 ### **Setup**
  
 ```bash
-git clone git@github.com:KULeuven-MICAS/openising.git
+git clone https://github.com/sofiedeweer/openising.git
 cd openising
 source .setup
 ```
